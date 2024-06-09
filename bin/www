@@ -1,0 +1,146 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+ var mongoose = require('mongoose');
+ var config = require('./../config/database');
+ var app = require('../app');
+ var debug = require('debug')('api:server');
+ var https = require('http');
+ var fs = require('fs');
+ var path = require('path');
+ 
+ var morgan = require('morgan');
+ 
+ /**
+  * Get port from environment and store in Express.
+  */
+ 
+ process.env.MODE = process.env.MODE || 'development';
+ 
+ var port = normalizePort(process.env.PORT || '3000');
+ app.set('port', port);
+ 
+ /**
+  * loading certificates
+  * 
+  */
+ 
+  var https_options = {
+   key: fs.readFileSync("./bin/keys/private.key"),
+   cert: fs.readFileSync("./bin/keys/certificate.crt"),
+   ca: [
+   fs.readFileSync('./bin/keys/ca_bundle.crt')
+   ]
+   };
+ 
+ 
+ /**
+  * Create HTTP server.
+  */
+ 
+ var server = https.createServer(https_options, app);
+//  const io = require("socket.io")(server);
+ /**
+  * Listen on provided port, on all network interfaces.
+  */
+ 
+ // server.listen(port);
+ server.listen(3000, '0.0.0.0', function() {
+   console.log('Listening to port:  ' + 3000);
+ });
+ server.on('error', onError);
+ server.on('listening', onListening);
+ 
+ /**
+  * Normalize a port into a number, string, or false.
+  */
+ 
+ function normalizePort(val) {
+   var port = parseInt(val, 10);
+ 
+   if (isNaN(port)) {
+     // named pipe
+     return val;
+   }
+ 
+   if (port >= 0) {
+     // port number
+     return port;
+   }
+ 
+   return false;
+ }
+ 
+ /**
+  * Event listener for HTTP server "error" event.
+  */
+ 
+ function onError(error) {
+   if (error.syscall !== 'listen') {
+     throw error;
+   }
+ 
+   var bind = typeof port === 'string'
+     ? 'Pipe ' + port
+     : 'Port ' + port;
+ 
+   // handle specific listen errors with friendly messages
+   switch (error.code) {
+     case 'EACCES':
+       console.error(bind + ' requires elevated privileges');
+       process.exit(1);
+       break;
+     case 'EADDRINUSE':
+       console.error(bind + ' is already in use');
+       process.exit(1);
+       break;
+     default:
+       throw error;
+   }
+ }
+ 
+ // Database Connectivity
+ mongoose.Promise = global.Promise;
+ mongoose.connect(config.database, {
+   useNewUrlParser: true,
+   useCreateIndex: true,
+   useUnifiedTopology: true,
+   useFindAndModify: false
+ });
+ 
+ mongoose.connection.on('connected', () => {
+   console.log('connected to db ' + config.database);
+ });
+ 
+ mongoose.connection.on('error', err => {
+   console.log('database error:' + err);
+ });
+ 
+ console.log(process.env.MODE);
+ 
+ if (process.env.MODE === 'Production') {
+   // create a write stream (in append mode)
+   var accessLogStream = fs.createWriteStream(path.join(__dirname, `access.log`), { flags: 'a' });
+ 
+   // setup the logger
+   app.use(morgan('combined', { stream: accessLogStream }))
+ 
+   app.use(morgan('tiny'))
+   // create a write stream (in append mode) End
+ }
+ 
+ /**
+  * Event listener for HTTP server "listening" event.
+  */
+ 
+ function onListening() {
+   var addr = server.address();
+   var bind = typeof addr === 'string'
+     ? 'pipe ' + addr
+     : 'port ' + addr.port;
+   debug('Listening on ' + bind);
+ }
+ 

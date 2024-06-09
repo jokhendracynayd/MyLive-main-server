@@ -1,0 +1,81 @@
+const mongoose = require("mongoose");
+const TableName = "greedy";
+const TableSchema = mongoose.Schema({
+   seat:{
+    A_total_amount:{
+      type:Number,
+      required:true,
+      default:0,
+    },
+    B_total_amount:{
+      type:Number,
+      required:true,
+      default:0
+    },
+    C_total_amount:{
+      type:Number,
+      required:true,
+      default:0,
+    },
+    D_total_amount:{
+      type:Number,
+      required:true,
+      default:0,
+    },
+    E_total_amount:{
+      type:Number,
+      required:true,
+      default:0,
+    },
+    F_total_amount:{
+      type:Number,
+      required:true,
+      default:0,
+    },
+    G_total_amount:{
+      type:Number,
+      required:true,
+      default:0,
+    },
+    H_total_amount:{
+      type:Number,
+      required:true,
+      default:0,
+    },
+   },
+   game_last_count:{
+    type:Number,
+    default:20,
+   },
+   users:{
+    type:Array,
+   },
+   game_status:{
+    type:String,
+    enum:["active","ended"],
+    default:"active"
+   },
+   winnerAnnounced:{
+    type:String,
+    enum:["no","yes"],
+    default:"no"
+   },
+   winnedSeat:{
+    type:String,
+   },
+   created_at:{
+    type:Date
+   },
+   last_update:{
+    type:Date
+   },
+   WiningAmount:{
+    type:Object
+   },
+   TopUserWinner:{
+    type:Array,
+   },
+});
+
+const Table = (module.exports = mongoose.model(TableName, TableSchema));
+module.exports.Table = Table;
