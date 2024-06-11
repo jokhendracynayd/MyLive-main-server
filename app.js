@@ -6,9 +6,9 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 var cors = require("cors");
-var UserLoginModel = require("./models/m_user_login");
-var config = require('./config/database');
-var io=require("socket.io")
+// var UserLoginModel = require("./models/m_user_login");
+// var config = require('./config/database');
+// var io=require("socket.io")
 require('./routes/cron_job')
 const globalErrorHandler = require("./controllers/errorController");
 // const logger = require("./utilis/logger");

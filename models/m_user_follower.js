@@ -6,12 +6,12 @@ const TableName = "user_follower";
 
 
 const TableSchema = mongoose.Schema({
-    primary_userId: {
+    primary_UID: {
         type: String,
         required: [true, "primary_userId is required"],
         trim: true,
     },
-    follower_userID: {
+    follower_UID: {
         type: String,
         required: [true, "follower_userID is required"],
         trim: true,
@@ -24,16 +24,16 @@ const TableSchema = mongoose.Schema({
         type:Boolean,
         default:true
     },
-    notificationSettings: {
-        user_id: {
-          type: Boolean,
-          default: true
-        },
-        push: {
-          type: Boolean,
-          default: true
-        }
-    },
+    // notificationSettings: {
+    //     UID: {
+    //       type: Boolean,
+    //       default: true
+    //     },
+    //     push: {
+    //       type: Boolean,
+    //       default: true
+    //     }
+    // },
     privacySettings: {
         visibility: {
           type: String,

@@ -4,23 +4,33 @@ const bcrypt = require("bcryptjs");
 const TableName = "user_login";
 
 const TableSchema = mongoose.Schema({
-    
-    username: {
+    UID: {
         type: String,
         unique: true
     },
     email: {
         type: String,
-        // unique: true
+        unique: true,
+        required: true
     },
     mobile: {
         type: String,
-           },
+    },
     gender:{
         type:String,
+        enum:['male','female','other']
     },
-    region:{
+    Ucoins:{
+        type:Number,
+        default:0
+    },
+    Udiamonds:{
+        type:Number,
+        default:0
+    },
+    country:{
         type:String,
+        default:null
     },
     password: {
         type: String,
@@ -60,7 +70,7 @@ const TableSchema = mongoose.Schema({
         type: String,
         default:null
     },
-    device_id:{
+    deviceId:{
         type:String,
         default:null
     },
@@ -69,36 +79,22 @@ const TableSchema = mongoose.Schema({
         enum:['active','un_active'],
         default:'active'
     },
-    created_at: {
-        type: Date,
-    },
-    created_by: {
-        type: String,
-    },
-    last_update: {
-        type: Date,
-    },
+    
     delete_status: {
-        type: String,
+        type: Boolean,
+        default: false
     },
     status:{
-        type:String,
-        enum:['unblock','block'],
-        default:'unblock'
+        type:Boolean,
+        default:false
     },
     level:{
         type:Number,
         default:0
     },
     vip:{
-        status:{
-            type:Number,
-            default:0
-        },
-        expire_at:{
-            type:Date,
-            default:null
-        }
+        type:Number,
+        default:0
     },
     is_verified:{
         type:Boolean,

@@ -41,7 +41,7 @@
   * Create HTTP server.
   */
  
- var server = https.createServer(https_options, app);
+ var server = https.createServer(app);
 //  const io = require("socket.io")(server);
  /**
   * Listen on provided port, on all network interfaces.

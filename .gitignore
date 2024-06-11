@@ -3,3 +3,4 @@ uploads
 config/smsconfig.js
 config/donalive-app-serviceAccountKey.json
 config/mylive-app-serviceAccountKey.json
+node_modules
