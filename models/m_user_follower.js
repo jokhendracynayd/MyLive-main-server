@@ -11,7 +11,7 @@ const TableSchema = mongoose.Schema({
         required: [true, "primary_userId is required"],
         trim: true,
     },
-    follower_UID: {
+    following_UID: {
         type: String,
         required: [true, "follower_userID is required"],
         trim: true,
@@ -23,6 +23,10 @@ const TableSchema = mongoose.Schema({
     status: {
         type:Boolean,
         default:true
+    },
+    followBacked: {
+        type: Boolean,
+        default: false
     },
     // notificationSettings: {
     //     UID: {
@@ -45,7 +49,7 @@ const TableSchema = mongoose.Schema({
           default: true
         }
     },
-    relationshipType: String,
+    // relationshipType: String,
   blocked: {
     type: Boolean,
     default: false
@@ -59,6 +63,22 @@ const TableSchema = mongoose.Schema({
     default: 0
   }
 });
+
+// TableSchema.pre('save', async function(next) {
+//     if (this.isNew) {
+//         const mutualRelationship = await this.constructor.findOne({
+//             primary_UID: this.following_UID,
+//             following_UID: this.primary_UID
+//         });
+
+//         if (mutualRelationship) {
+//             this.mutualFollowersCount = 1;
+//             mutualRelationship.mutualFollowersCount = 1;
+//             await mutualRelationship.save();
+//         }
+//     }
+//     next();
+// });
 
 // const TableSchema = mongoose.Schema({
    

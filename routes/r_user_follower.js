@@ -12,45 +12,103 @@ const {sendNotification} =require('../controllers/push_notification')
 //TODO: New API for follow and unfollow
 
 router.route('/follow-unfollow').post(asyncErrorHandler(async(req,res)=>{
-    const {follower_UID,primary_UID} = req.body;
-    if(!follower_UID || !primary_UID){
+    const {primary_UID,following_UID} = req.body;
+    if((!primary_UID || !following_UID) || (primary_UID == following_UID)){
         return res.json({
             success:false,
             data:{},
             msg:"Please provide all the fields"
         })
     }
-    const isUser = await TableModel.Table.aggregate([
-        {
-            $match: {
-                $and: [
-                    { follower_UID: follower_UID },
-                    { primary_UID: primary_UID }
-                ]
-            }
-        },
-    ]).exec();
-    if(isUser.length == 0){
+    const isFollowing = await TableModel.Table.findOne({
+        primary_UID,
+        following_UID
+    });
+    console.log("this is isFollowing",isFollowing);
+    if(isFollowing){
+        console.log("this is line number",29);
         // Here we will follow the user
-        const newFollower = new TableModel.Table(req.body);
-        let isSave = await newFollower.save();
+        isFollowing.status = !isFollowing.status;
+        let isSave = await isFollowing.save();
         if(isSave){
+            console.log("this is line number",34);
             return res.json({
                 success:true,
                 data:isSave,
-                msg:"User followed"
+                msg:`User ${isSave.status ? 'followed' : 'unfollowed'}`
             })
         }
     }
-    const ok = await TableModel.Table.findByIdAndUpdate(isUser[0]._id, { $set: { status: !isUser[0].status }},{new:true}).exec();
-    if(ok){
+    let checkFollowBack = await TableModel.Table.findOne({
+        primary_UID: following_UID,
+        following_UID: primary_UID
+    });
+    console.log("this is checkFollowBack",checkFollowBack);
+    if(checkFollowBack){
+        console.log("this is line number",48);
+        // checkFollowBack.mutualFollowersCount = checkFollowBack.mutualFollowersCount - 1;
+        checkFollowBack.followBacked = !checkFollowBack.followBacked;
+        await checkFollowBack.save();
         return res.json({
             success:true,
-            data:ok,
-            msg:"User unfollowed"
+            data:checkFollowBack,
+            msg:`User ${checkFollowBack.followBacked ? 'followed' : 'unfollowed'}`
+        })
+    }
+    const newFollower = new TableModel.Table(req.body);
+    let isSave = await newFollower.save();
+    console.log("this is isSave",isSave);
+    if(isSave){
+        console.log("this is line number ",62);
+        return res.json({
+            success:true,
+            data:isSave,
+            msg:"User followed"
         })
     }
 }));
+
+
+// router.route('/follow-unfollow').post(asyncErrorHandler(async(req,res)=>{
+//     const {following_UID,primary_UID} = req.body;
+//     if(!following_UID || !primary_UID){
+//         return res.json({
+//             success:false,
+//             data:{},
+//             msg:"Please provide all the fields"
+//         })
+//     }
+//     const isUser = await TableModel.Table.aggregate([
+//         {
+//             $match: {
+//                 $and: [
+//                     { follower_UID: following_UID },
+//                     { primary_UID: primary_UID }
+//                 ]
+//             }
+//         },
+//     ]).exec();
+//     if(isUser.length == 0){
+//         // Here we will follow the user
+//         const newFollower = new TableModel.Table(req.body);
+//         let isSave = await newFollower.save();
+//         if(isSave){
+//             return res.json({
+//                 success:true,
+//                 data:isSave,
+//                 msg:"User followed"
+//             })
+//         }
+//     }
+//     const ok = await TableModel.Table.findByIdAndUpdate(isUser[0]._id, { $set: { status: !isUser[0].status }},{new:true}).exec();
+//     if(ok){
+//         return res.json({
+//             success:true,
+//             data:ok,
+//             msg:"User unfollowed"
+//         })
+//     }
+// }));
 
 
 router.post('/create',asyncErrorHandler(async(req,res,next)=>{
@@ -266,74 +324,162 @@ router.get('/byId/:id',
 /**
  * @description this code is writen for find the friend of primary_user @jokhendra
  */
-router.post('/friends',
-// authenticate,
-async(req,res)=>{
-    const {fieldName,fieldValue}=req.body;
-    TableModel.getDataByFieldName(fieldName,fieldValue,(err,doc)=>{
-        if(err){
-            return rc.setResponse(res,{
-                msg:err.message
-            })
-        }else{
-            if(doc.length==0){
-                return rc.setResponse(res,{
-                    success:true,
-                    msg:"No friends"
-                })
-            }
-            let array1=new Array();
-            let array2=new Array();
-            for(var i=0;i<Object.keys(doc).length;i++){
-                array1[i]=doc[i].follower_userID
-            }
-            TableModel.getDataByFieldName("follower_userID",fieldValue,(err,docs)=>{
-                if(err){
-                    return rc.setResponse(res,{
-                        msg:err.message
-                    })
-                }else{
-                    if(docs==null){
-                        return rc.setResponse(res,{
-                            msg:"no friends",
-                            data:docs
-                        })
-                    }
-                    for(var i=0;i<Object.keys(docs).length;i++){
-                        array2[i]=docs[i].primary_userId
-                    }
-                }
-                let result = array1.filter(x => array2.includes(x));
-               
-                friendName(result,(response)=>{
-                    return rc.setResponse(res,{
-                        success:true,
-                        msg:"Data fetched",
-                        data:response,
-                    })
-                })
-               function friendName(data,callback){
-                let sendToData=[];
-                let count=0;
-                data.forEach(ele=>{
-                    TableModelLogin.getDataByFieldName("username",ele,(err,doc)=>{
-                        if(err){
-                            console.log(err.message);
-                        }else{
-                            sendToData.push(doc);
-                            count++;
-                            if(data.length==count){
-                                callback(sendToData)
-                            }
-                        }
-                    })
-                })
-               }
 
-            })
+//TODO: New API for get friends of specific user
+router.route('/friends/:UID').get(asyncErrorHandler(async (req, res) => {
+    const UID = req.params.UID;
+    if (!UID) {
+        return res.json({
+            success: false,
+            data: {},
+            msg: "Please provide all the fields"
+        });
+    }
+
+    const result = await TableModel.Table.aggregate([
+        {
+            $match: {
+                $or: [
+                    { primary_UID: UID },
+                    { following_UID: UID }
+                ]
+            }
+        },
+        {
+            $match: {
+                status: true,
+                followBacked: true
+            }
+        },
+        {
+            $count: "friends"
         }
+    ]);
+
+    const friendsCount = result.length > 0 ? result[0].friends : 0;
+
+    return res.json({
+        success: true,
+        data: {
+            friends: friendsCount
+        },
+        msg: "Friends count"
+    });
+}));
+
+
+// router.post('/friends',
+// // authenticate,
+// async(req,res)=>{
+//     const {fieldName,fieldValue}=req.body;
+//     TableModel.getDataByFieldName(fieldName,fieldValue,(err,doc)=>{
+//         if(err){
+//             return rc.setResponse(res,{
+//                 msg:err.message
+//             })
+//         }else{
+//             if(doc.length==0){
+//                 return rc.setResponse(res,{
+//                     success:true,
+//                     msg:"No friends"
+//                 })
+//             }
+//             let array1=new Array();
+//             let array2=new Array();
+//             for(var i=0;i<Object.keys(doc).length;i++){
+//                 array1[i]=doc[i].follower_userID
+//             }
+//             TableModel.getDataByFieldName("follower_userID",fieldValue,(err,docs)=>{
+//                 if(err){
+//                     return rc.setResponse(res,{
+//                         msg:err.message
+//                     })
+//                 }else{
+//                     if(docs==null){
+//                         return rc.setResponse(res,{
+//                             msg:"no friends",
+//                             data:docs
+//                         })
+//                     }
+//                     for(var i=0;i<Object.keys(docs).length;i++){
+//                         array2[i]=docs[i].primary_userId
+//                     }
+//                 }
+//                 let result = array1.filter(x => array2.includes(x));
+               
+//                 friendName(result,(response)=>{
+//                     return rc.setResponse(res,{
+//                         success:true,
+//                         msg:"Data fetched",
+//                         data:response,
+//                     })
+//                 })
+//                function friendName(data,callback){
+//                 let sendToData=[];
+//                 let count=0;
+//                 data.forEach(ele=>{
+//                     TableModelLogin.getDataByFieldName("username",ele,(err,doc)=>{
+//                         if(err){
+//                             console.log(err.message);
+//                         }else{
+//                             sendToData.push(doc);
+//                             count++;
+//                             if(data.length==count){
+//                                 callback(sendToData)
+//                             }
+//                         }
+//                     })
+//                 })
+//                }
+
+//             })
+//         }
+//     })
+// })
+
+
+//TODO: New APIfor friends list of specific user
+
+router.route('/friends-list/:UID').get(asyncErrorHandler(async(req,res)=>{
+    const UID = req.params.UID;
+    if(!UID){
+        return res.json({
+            success:false,
+            data:{},
+            msg:"Please provide all the fields"
+        })
+    }
+    const page = parseInt(req.query.page) || 1;  // Default to page 1
+    const limit = parseInt(req.query.limit) || 20; // Default to 20 items per page
+    const skip = (page - 1) * limit;
+
+    let users = await TableModel.Table.find({
+        $or: [
+            { primary_UID: UID, status: true, followBacked: true },
+            { following_UID: UID, status: true, followBacked: true }
+        ]
     })
-})
+    .skip(skip)
+    .limit(limit);
+
+    let userIds = users.map(user => user.primary_UID == UID ? user.following_UID : user.primary_UID);
+    let usersWithDetails = await TableModelLogin.Table.find({UID: {$in: userIds}},{user_nick_name:1,user_profile_pic:1,level:1,vip:1,UID:1});
+    // Check profile pic is url and update
+    usersWithDetails = usersWithDetails.map(user => {
+        return {
+            user_profile_pic: user.user_profile_pic.startsWith("http") ? user.user_profile_pic : `https://apimylive.cynayd.com/socket-server/api/v2/users/get-profile-pic/${user.UID}`,
+            user_nick_name: user.user_nick_name,
+            level: user.level,
+            vip: user.vip,
+            UID: user.UID
+        }
+    });
+    return res.json({
+        success:true,
+        data:usersWithDetails,
+        msg:"Friends"
+    })
+}));
 
 
 /**
@@ -344,37 +490,84 @@ async(req,res)=>{
 //TODO: Check user is following or not
 
 router.route('/isFollowing').post(asyncErrorHandler(async(req,res)=>{
-    const {follower_UID,primary_UID} = req.body;
-    if(!follower_UID || !primary_UID){
+    const {primary_UID,following_UID} = req.body;
+    if((!primary_UID || !following_UID) || (primary_UID == following_UID)){
         return res.json({
             success:false,
             data:{},
             msg:"Please provide all the fields"
         })
     }
-    const isUser = await TableModel.Table.findOne({
-        follower_UID: follower_UID,
-        primary_UID: primary_UID,
-        status: true
+    let isFollowing = await TableModel.Table.findOne({
+        $or: [
+            { primary_UID: primary_UID, following_UID: following_UID },
+            { primary_UID: following_UID, following_UID: primary_UID }
+        ]
     });
-    console.log(isUser);
-    if(isUser){
+    if(isFollowing){
+        // If primary_UID == isFollowing.primary_UID then check status
+        // If primary_UID == isFollowing.following_UID then check followBacked
+        if(primary_UID == isFollowing.primary_UID){
+            return res.json({
+                success:true,
+                data:{
+                    isFollowing: isFollowing.status,
+                    followBacked: isFollowing.followBacked
+                },
+                msg:"You are following him/her"
+            })
+        }
         return res.json({
             success:true,
             data:{
-                isFollowing:true
+                isFollowing: isFollowing.status,
+                followBacked: isFollowing.followBacked
             },
-            msg:"User is not following"
+            msg:"You are following him/her"
         })
     }
     return res.json({
         success:true,
         data:{
-            isFollowing:false
+            isFollowing: false,
+            followBacked: false
         },
-        msg:"User is following"
+        msg:"You are not following him/her"
     })
 }));
+
+// router.route('/isFollowing').post(asyncErrorHandler(async(req,res)=>{
+//     const {following_UID,primary_UID} = req.body;
+//     if(!following_UID || !primary_UID){
+//         return res.json({
+//             success:false,
+//             data:{},
+//             msg:"Please provide all the fields"
+//         })
+//     }
+//     const isUser = await TableModel.Table.findOne({
+//         following_UID: following_UID,
+//         primary_UID: primary_UID,
+//         status: true
+//     });
+//     console.log(isUser);
+//     if(isUser){
+//         return res.json({
+//             success:true,
+//             data:{
+//                 isFollowing:true
+//             },
+//             msg:"You are following him/her"
+//         })
+//     }
+//     return res.json({
+//         success:true,
+//         data:{
+//             isFollowing:false
+//         },
+//         msg:"You are not following him/her"
+//     })
+// }));
 
 //TODO: New API for count the follower of specific user
 
@@ -387,23 +580,15 @@ router.route('/followers-followings/:UID').get(asyncErrorHandler(async(req,res)=
             msg:"Please provide all the fields"
         })
     }
-    const results = await TableModel.Table.aggregate([
-        {
-            $facet: {
-                followers: [
-                    { $match: { primary_UID: UID, status: true } },
-                    { $count: "count" }
-                ],
-                following: [
-                    { $match: { follower_UID: UID, status: true } },
-                    { $count: "count" }
-                ]
-            }
-        }
-    ]).exec();
-    
-    const followers = results[0].followers[0] ? results[0].followers[0].count : 0;
-    const followings = results[0].following[0] ? results[0].following[0].count : 0;
+    let users = await TableModel.Table.find({
+        $or: [
+            { primary_UID: UID },
+            { following_UID: UID }
+        ]
+    })
+    let followers = users.filter(user => ((user.primary_UID == UID && user.status) || (user.following_UID == UID && user.status))).length;
+    let followings = users.filter(user => ((user.primary_UID == UID && user.followBacked) || (user.following_UID == UID && user.followBacked))).length;
+
     return res.json({
         success:true,
         data:{
@@ -413,6 +598,43 @@ router.route('/followers-followings/:UID').get(asyncErrorHandler(async(req,res)=
         msg:"Follower count"
     })
 }));
+
+
+// router.route('/followers-followings/:UID').get(asyncErrorHandler(async(req,res)=>{
+//     const UID = req.params.UID;
+//     if(!UID){
+//         return res.json({
+//             success:false,
+//             data:{},
+//             msg:"Please provide all the fields"
+//         })
+//     }
+//     const results = await TableModel.Table.aggregate([
+//         {
+//             $facet: {
+//                 followers: [
+//                     { $match: { primary_UID: UID, status: true } },
+//                     { $count: "count" }
+//                 ],
+//                 following: [
+//                     { $match: { following_UID: UID, status: true } },
+//                     { $count: "count" }
+//                 ]
+//             }
+//         }
+//     ]).exec();
+    
+//     const followers = results[0].followers[0] ? results[0].followers[0].count : 0;
+//     const followings = results[0].following[0] ? results[0].following[0].count : 0;
+//     return res.json({
+//         success:true,
+//         data:{
+//             followers,
+//             followings
+//         },
+//         msg:"Follower count"
+//     })
+// }));
 
 
 // router.post('/numberOfFollower',
@@ -502,6 +724,90 @@ router.route('/followers-followings/:UID').get(asyncErrorHandler(async(req,res)=
 //     })
 
 // })
+
+// TODO: New API for get followers of specific user
+
+
+
+router.route('/followers-list/:UID').get(asyncErrorHandler(async(req,res)=>{
+    const UID = req.params.UID;
+    if(!UID){
+        return res.json({
+            success:false,
+            data:{},
+            msg:"Please provide all the fields"
+        })
+    }
+    const page = parseInt(req.query.page) || 1;  // Default to page 1
+    const limit = parseInt(req.query.limit) || 20; // Default to 20 items per page
+    const skip = (page - 1) * limit;
+
+    let users = await TableModel.Table.find({
+        $or: [
+            { primary_UID: UID, followBacked: true },
+            { following_UID: UID, status: true }
+        ]
+    })
+    .skip(skip)
+    .limit(limit);
+
+    let userIds = users.map(user => user.primary_UID == UID ? user.following_UID : user.primary_UID);
+    let usersWithDetails = await TableModelLogin.Table.find({UID: {$in: userIds}},{user_nick_name:1,user_profile_pic:1,level:1,vip:1,UID:1});
+    // Check profile pic is url and update
+    usersWithDetails = usersWithDetails.map(user => {
+        return {
+            user_profile_pic: user.user_profile_pic.startsWith("http") ? user.user_profile_pic : `https://apimylive.cynayd.com/socket-server/api/v2/users/get-profile-pic/${user.UID}`,
+            user_nick_name: user.user_nick_name,
+            level: user.level,
+            vip: user.vip,
+            UID: user.UID
+        }
+    });
+    return res.json({
+        success:true,
+        data:usersWithDetails,
+        msg:"Followers"
+    })
+}));
+
+//TODO: New API for get followings of specific user
+
+router.route('/followings-list/:UID').get(asyncErrorHandler(async(req,res)=>{
+    const UID = req.params.UID;
+    if(!UID){
+        return res.json({
+            success:false,
+            data:{},
+            msg:"Please provide all the fields"
+        })
+    }
+    const page = parseInt(req.query.page) || 1;  // Default to page 1
+    const limit = parseInt(req.query.limit) || 20; // Default to 20 items per page
+    const skip = (page - 1) * limit;
+    let users = await TableModel.Table.find({
+        $or:[
+            {primary_UID: UID, status: true},
+            {following_UID: UID, followBacked: true}
+        ]
+    }).skip(skip).limit(limit);
+    let userIds = users.map(user => user.primary_UID == UID ? user.following_UID : user.primary_UID);
+    let usersWithDetails = await TableModelLogin.Table.find({UID: {$in: userIds}},{user_nick_name:1,user_profile_pic:1,level:1,vip:1,UID:1});
+    // Check profile pic is url and update
+    usersWithDetails = usersWithDetails.map(user => {
+        return {
+            user_profile_pic: user.user_profile_pic.startsWith("http") ? user.user_profile_pic : `https://apimylive.cynayd.com/socket-server/api/v2/users/get-profile-pic/${user.UID}`,
+            user_nick_name: user.user_nick_name,
+            level: user.level,
+            vip: user.vip,
+            UID: user.UID
+        }
+    });
+    return res.json({
+        success:true,
+        data:usersWithDetails,
+        msg:"Followings"
+    })
+}));
 
 router.post('/byField',
     // passport.authenticate("jwt", { session: false }),
