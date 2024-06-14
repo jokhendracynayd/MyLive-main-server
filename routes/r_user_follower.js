@@ -24,14 +24,11 @@ router.route('/follow-unfollow').post(asyncErrorHandler(async(req,res)=>{
         primary_UID,
         following_UID
     });
-    console.log("this is isFollowing",isFollowing);
     if(isFollowing){
-        console.log("this is line number",29);
         // Here we will follow the user
         isFollowing.status = !isFollowing.status;
         let isSave = await isFollowing.save();
         if(isSave){
-            console.log("this is line number",34);
             return res.json({
                 success:true,
                 data:isSave,
@@ -43,9 +40,7 @@ router.route('/follow-unfollow').post(asyncErrorHandler(async(req,res)=>{
         primary_UID: following_UID,
         following_UID: primary_UID
     });
-    console.log("this is checkFollowBack",checkFollowBack);
     if(checkFollowBack){
-        console.log("this is line number",48);
         // checkFollowBack.mutualFollowersCount = checkFollowBack.mutualFollowersCount - 1;
         checkFollowBack.followBacked = !checkFollowBack.followBacked;
         await checkFollowBack.save();
@@ -57,9 +52,7 @@ router.route('/follow-unfollow').post(asyncErrorHandler(async(req,res)=>{
     }
     const newFollower = new TableModel.Table(req.body);
     let isSave = await newFollower.save();
-    console.log("this is isSave",isSave);
     if(isSave){
-        console.log("this is line number ",62);
         return res.json({
             success:true,
             data:isSave,
