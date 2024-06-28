@@ -77,7 +77,7 @@ async function checkLastUpdateAndEnd(data){
 
 cron.schedule('*/30 * * * * *',async()=>{
   let livesData = await LiveStreamingTableModel.Table.find({live_streaming_current_status:'live'},{last_update:1});
-  await checkLastUpdateAndEnd(livesData);
+  // await checkLastUpdateAndEnd(livesData);
   
 });
 

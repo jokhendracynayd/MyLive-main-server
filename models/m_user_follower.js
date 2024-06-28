@@ -1,10 +1,5 @@
-const { query } = require("express");
 const mongoose = require("mongoose");
-const rc=require("../controllers/responseController")
-
 const TableName = "user_follower";
-
-
 const TableSchema = mongoose.Schema({
     primary_UID: {
         type: String,

@@ -167,7 +167,7 @@ async function getTopUsersReceiver(filter) {
 }
 
 
-async function getTopGamer(filter) {
+async function getTopGamer(filter, page, limit) {
     const aggregationPipeline = [
         {
             $match: {
@@ -179,7 +179,7 @@ async function getTopGamer(filter) {
         },
         {
             $group: {
-                _id: "$sender_id",
+                _id: "$sender_UID",
                 total: { $sum: "$transaction_amount" }
             }
         },
@@ -189,23 +189,26 @@ async function getTopGamer(filter) {
             }
         },
         {
-            $limit: 100
+            $skip: (page - 1) * limit
+        },
+        {
+            $limit: limit
         },
         {
             $lookup: {
                 from: "user_logins",
                 localField: "_id",
-                foreignField: "username",
+                foreignField: "UID",
                 as: "user_data"
             }
         },
         {
             $project: {
                 _id: 0,
-                sender_id: "$_id",
+                sender_UID: "$_id",
                 total: 1,
-                username: { $arrayElemAt: ["$user_data.user_nick_name", 0] },
-                profile_pic: {
+                user_nick_name: { $arrayElemAt: ["$user_data.user_nick_name", 0] },
+                user_profile_pic: {
                     $cond: {
                       if: {
                         $eq: [
@@ -216,8 +219,8 @@ async function getTopGamer(filter) {
                       then: { $arrayElemAt: ["$user_data.user_profile_pic", 0] },
                       else: {
                         $concat: [
-                          `${API.Api}/file/download/`,
-                          { $arrayElemAt: ["$user_data.user_profile_pic", 0] }
+                          `${API.SocketAPI}/users/get-profile-pic/`,
+                          { $arrayElemAt: ["$user_data.UID", 0] }
                         ]
                       }
                     }
@@ -230,16 +233,17 @@ async function getTopGamer(filter) {
 
 
 
+
 router.route('/top-gamer').get(asyncErrorHandler(async (req, res, next) => {
     try {
-        let isTopGamer = await client.GET('topGamer');
-        if (isTopGamer) {
-            isTopGamer = JSON.parse(isTopGamer);
-            return res.status(200).json({
-                success: true,
-                data: isTopGamer
-            });
-        }
+        // let isTopGamer = await client.GET('topGamer');
+        // if (isTopGamer) {
+        //     isTopGamer = JSON.parse(isTopGamer);
+        //     return res.status(200).json({
+        //         success: true,
+        //         data: isTopGamer
+        //     });
+        // }
         // Current day aggregation with username and profile_pic lookup
         const today = new Date();
         const currentDate = new Date();
@@ -254,14 +258,17 @@ router.route('/top-gamer').get(asyncErrorHandler(async (req, res, next) => {
             startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
             endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
         }
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+
         const data = await getTopGamer({
             dateRange: {
-                $gte: startDate, //new Date(today.setHours(0, 0, 0)),
-                $lt: endDate //new Date(today.setHours(23, 59, 59))
+                $gte: startDate,
+                $lt: endDate
             },
             transaction_type: "credited",
             entity_type: "game"
-        });
+        }, page, limit);
         // Weekly aggregation with username and profile_pic lookup
         // const startOfWeek = new Date(today);
         // startOfWeek.setDate(today.getDate() - today.getDay());
@@ -305,11 +312,11 @@ router.route('/top-gamer').get(asyncErrorHandler(async (req, res, next) => {
         //     user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
         // });
 
-        await client.SETEX('topGamer',900, JSON.stringify({
-            currentDay: data,
-            // currentWeek: weeklyData,
-            // currentMonth: monthlyData
-        }));
+        // await client.SETEX('topGamer',900, JSON.stringify({
+        //     currentDay: data,
+        //     // currentWeek: weeklyData,
+        //     // currentMonth: monthlyData
+        // }));
 
         return res.status(200).json({
             success: true,
@@ -317,6 +324,10 @@ router.route('/top-gamer').get(asyncErrorHandler(async (req, res, next) => {
                 currentDay: data,
                 // currentWeek: weeklyData,
                 // currentMonth: monthlyData
+            },
+            pagination: {
+                page,
+                limit
             }
         });
     } catch (error) {
@@ -328,14 +339,14 @@ router.route('/top-gamer').get(asyncErrorHandler(async (req, res, next) => {
 
 router.route('/top-receiver').get(asyncErrorHandler(async (req, res, next) => {
     try {
-        let isTopReceiver = await client.GET('topReceiver');
-        if (isTopReceiver) {
-            isTopReceiver = JSON.parse(isTopReceiver);
-            return res.status(200).json({
-                success: true,
-                data: isTopReceiver
-            });
-        }
+        // let isTopReceiver = await client.GET('topReceiver');
+        // if (isTopReceiver) {
+        //     isTopReceiver = JSON.parse(isTopReceiver);
+        //     return res.status(200).json({
+        //         success: true,
+        //         data: isTopReceiver
+        //     });
+        // }
         // Current day aggregation with username and profile_pic lookup
         const today = new Date();
         const currentDate = new Date();
@@ -400,11 +411,11 @@ router.route('/top-receiver').get(asyncErrorHandler(async (req, res, next) => {
             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
         });
 
-        await client.SETEX('topReceiver', 900, JSON.stringify({
-            currentDay: data,
-            currentWeek: weeklyData,
-            currentMonth: monthlyData
-        }));
+        // await client.SETEX('topReceiver', 900, JSON.stringify({
+        //     currentDay: data,
+        //     currentWeek: weeklyData,
+        //     currentMonth: monthlyData
+        // }));
 
         return res.status(200).json({
             success: true,
@@ -424,14 +435,14 @@ router.route('/top-receiver').get(asyncErrorHandler(async (req, res, next) => {
 
 router.route('/top-sender').get(asyncErrorHandler(async (req, res, next) => {
     try {
-        let isTopSender = await client.GET('topSender');
-        if (isTopSender) {
-            isTopSender = JSON.parse(isTopSender);
-            return res.status(200).json({
-                success: true,
-                data: isTopSender
-            });
-        }
+        // let isTopSender = await client.GET('topSender');
+        // if (isTopSender) {
+        //     isTopSender = JSON.parse(isTopSender);
+        //     return res.status(200).json({
+        //         success: true,
+        //         data: isTopSender
+        //     });
+        // }
         // Current day aggregation with username and profile_pic lookup
         const today = new Date();
         const currentDate = new Date();
@@ -495,11 +506,11 @@ router.route('/top-sender').get(asyncErrorHandler(async (req, res, next) => {
             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
         });
 
-        await client.SETEX('topSender', 900, JSON.stringify({
-            currentDay: data,
-            currentWeek: weeklyData,
-            currentMonth: monthlyData
-        }));
+        // await client.SETEX('topSender', 900, JSON.stringify({
+        //     currentDay: data,
+        //     currentWeek: weeklyData,
+        //     currentMonth: monthlyData
+        // }));
 
 
         return res.status(200).json({

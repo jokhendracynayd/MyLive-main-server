@@ -1,6 +1,5 @@
 //Production
 
-
 const admin = require("firebase-admin");
 const serviceAccount = require("../config/mylive-app-serviceAccountKey.json");
 const android = require("../config/android_key.js");

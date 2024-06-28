@@ -36,11 +36,11 @@ const TableSchema = mongoose.Schema({
     enum: ["self","user", "admin","reseller","agency","game","mylive"],
     required: true,
   },
-  sender_id: {
+  sender_UID: {
     type: String,
     required: true,
   },
-  receiver_id: {
+  receiver_UID: {
     type: mongoose.Schema.Types.Mixed,
     required: true,
   },
