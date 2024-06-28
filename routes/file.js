@@ -168,6 +168,7 @@ _router.get("/downloadHostDoc/:filename",(req,res)=>{
 })
 
 _router.get("/downloadBanner/:filename",function(req,res,next){
+    console.log("this is download banner",req.params.filename);
     filepath=path.join(__dirname,"/../uploads/banner")+"/"+req.params.filename;
     res.sendFile(filepath);
 });

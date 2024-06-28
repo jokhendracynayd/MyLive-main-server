@@ -205,7 +205,7 @@ async function getTopGamer(filter, page, limit) {
         {
             $project: {
                 _id: 0,
-                sender_UID: "$_id",
+                UID: "$_id",
                 total: 1,
                 user_nick_name: { $arrayElemAt: ["$user_data.user_nick_name", 0] },
                 user_profile_pic: {
