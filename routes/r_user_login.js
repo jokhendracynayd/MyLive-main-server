@@ -20,23 +20,84 @@ const axios = require('axios');
 const API = require('../config/api');
 const {lookup} = require('geoip-lite');
 const client = require('../config/redis');
+const StickerTransacationModel = require('../models/user.sticker.transaction.models');
 
-
-
-router.route('/updateUser-nick-name').get(asyncErrorHandler(async (req, res, next) => {
-    let users = await TableModel.Table.find({user_nick_name:""});
-    // updte user_nick_name with email first 5 char username with space between both
-    users.forEach(async(user)=>{
-        let user_nick_name = user.email.substring(0,5)+" "+user.username;
-        await TableModel.Table.findByIdAndUpdate(user._id,{user_nick_name});
-    })
+router.route('/top-daily-sender/:UID').get(asyncErrorHandler(async (req, res, next) => {
+    let UID = req.params.UID;
+    // Validate UID
+    if (!UID) {
+        return res.json({
+            success: false,
+            msg: "UID is required"
+        });
+    }
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
+    let topSender = await StickerTransacationModel.aggregate([
+        {
+            $match: {
+                receiver_UID: UID,
+                role_of_receiver: "host",
+            }
+        },
+        {
+            $group: {
+                _id: "$sender_UID",
+                total: { $sum: "$giftPrice" }
+            }
+        },
+        {
+            $sort: {
+                total: -1
+            }
+        },
+        {
+            $skip: (page - 1) * limit
+        },
+        {
+            $limit: limit
+        },
+        {
+            $lookup: {
+                from: "user_logins",
+                localField: "_id",
+                foreignField: "UID",
+                as: "user_data"
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                UID: "$_id",
+                total: 1,
+                user_nick_name: { $arrayElemAt: ["$user_data.user_nick_name", 0] },
+                level: { $arrayElemAt: ["$user_data.level", 0] },
+                user_profile_pic: {
+                    $cond: {
+                        if: {
+                            $eq: [
+                                { $substr: [{ $arrayElemAt: ["$user_data.user_profile_pic", 0] }, 0, 8] },
+                                "https://"
+                            ]
+                        },
+                        then: { $arrayElemAt: ["$user_data.user_profile_pic", 0] },
+                        else: {
+                            $concat: [
+                                `${API.SocketAPI}/users/get-profile-pic/`,
+                                { $arrayElemAt: ["$user_data.user_profile_pic", 0] }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    ]);
     return res.json({
-        success:true,
-        msg:"User nick name updated successfully"
-    })
+        success: true,
+        message: "Top daily sender",
+        data: topSender
+    });
 }));
-
-
 
 
 async function getTopUsers(filter) {
@@ -208,6 +269,7 @@ async function getTopGamer(filter, page, limit) {
                 UID: "$_id",
                 total: 1,
                 user_nick_name: { $arrayElemAt: ["$user_data.user_nick_name", 0] },
+                level: { $arrayElemAt: ["$user_data.level", 0] },
                 user_profile_pic: {
                     $cond: {
                       if: {
@@ -338,193 +400,331 @@ router.route('/top-gamer').get(asyncErrorHandler(async (req, res, next) => {
 // Top Receiver
 
 router.route('/top-receiver').get(asyncErrorHandler(async (req, res, next) => {
-    try {
-        // let isTopReceiver = await client.GET('topReceiver');
-        // if (isTopReceiver) {
-        //     isTopReceiver = JSON.parse(isTopReceiver);
-        //     return res.status(200).json({
-        //         success: true,
-        //         data: isTopReceiver
-        //     });
-        // }
-        // Current day aggregation with username and profile_pic lookup
-        const today = new Date();
-        const currentDate = new Date();
-        const dayOfMonth = currentDate.getUTCDate(); // Use getUTCDate to get the day in UTC
-        let startDate, endDate;
-        if (dayOfMonth >= 1 && dayOfMonth <= 15) {
-            // Current date is between 1st and 15th day of the month
-            startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
-            endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
-        } else {
-            // Current date is after the 15th day of the month
-            startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
-            endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-        }
-        const data = await getTopUsersReceiver({
-            dateRange: {
-                $gte: startDate, //new Date(today.setHours(0, 0, 0)),
-                $lt: endDate //new Date(today.setHours(23, 59, 59))
-            },
-            transaction_type: "credited",
-            entity_type: "stickers-gifting"
-        });
-        // Weekly aggregation with username and profile_pic lookup
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
-        const weeklyData = await getTopUsersReceiver({
-            dateRange: {
-                $gte: startOfWeek,
-                $lt: endOfWeek
-            },
-            transaction_type: "credited",
-            entity_type: "stickers-gifting"
-
-        });
-        // Monthly aggregation with username and profile_pic lookup
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthlyData = await getTopUsersReceiver({
-            dateRange: {
-                $gte: startOfMonth,
-                $lt: new Date(today.getFullYear(), today.getMonth() + 1, 1)
-            },
-            transaction_type: "credited",
-            entity_type: "stickers-gifting"
-
-        });
-        const userIDs = data.concat(weeklyData, monthlyData).map(user => user.sender_id);
-        const userLevelPromises = userIDs.map(user_id => axios.post(`${API.Api}/giftTransation/getLevel`, { user_id }));
-        const userLevels = await Promise.all(userLevelPromises);
-
-        // Add level field to each user in the data
-        data.forEach((user, index) => {
-            user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
-        });
-
-        weeklyData.forEach((user, index) => {
-            user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
-        });
-
-        monthlyData.forEach((user, index) => {
-            user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
-        });
-
-        // await client.SETEX('topReceiver', 900, JSON.stringify({
-        //     currentDay: data,
-        //     currentWeek: weeklyData,
-        //     currentMonth: monthlyData
-        // }));
-
-        return res.status(200).json({
-            success: true,
-            data: {
-                currentDay: data,
-                currentWeek: weeklyData,
-                currentMonth: monthlyData
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
+    let topReceiver = await StickerTransacationModel.aggregate([
+        {
+            $match: {
+                role_of_receiver: "host",
             }
-        });
-    } catch (error) {
-        return next(error);
-    }
+        },
+        {
+            $group: {
+                _id: "$receiver_UID",
+                total: { $sum: "$giftPrice" }
+            }
+        },
+        {
+            $sort: {
+                total: -1
+            }
+        },
+        {
+            $skip: (page - 1) * limit
+        },
+        {
+            $limit: limit
+        },
+        {
+            $lookup: {
+                from: "user_logins",
+                localField: "_id",
+                foreignField: "UID",
+                as: "user_data"
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                UID: "$_id",
+                total: 1,
+                user_nick_name: { $arrayElemAt: ["$user_data.user_nick_name", 0] },
+                level: { $arrayElemAt: ["$user_data.level", 0] },
+                user_profile_pic: {
+                    $cond: {
+                        if: {
+                            $eq: [
+                                { $substr: [{ $arrayElemAt: ["$user_data.user_profile_pic", 0] }, 0, 8] },
+                                "https://"
+                            ]
+                        },
+                        then: { $arrayElemAt: ["$user_data.user_profile_pic", 0] },
+                        else: {
+                            $concat: [
+                                `${API.SocketAPI}/users/get-profile-pic/`,
+                                { $arrayElemAt: ["$user_data.user_profile_pic", 0] }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    ]);
+    return res.json({
+        success: true,
+        message: "Top receiver",
+        data: topReceiver
+    });
 }));
+
+
+// router.route('/top-receiver').get(asyncErrorHandler(async (req, res, next) => {
+//     try {
+//         // let isTopReceiver = await client.GET('topReceiver');
+//         // if (isTopReceiver) {
+//         //     isTopReceiver = JSON.parse(isTopReceiver);
+//         //     return res.status(200).json({
+//         //         success: true,
+//         //         data: isTopReceiver
+//         //     });
+//         // }
+//         // Current day aggregation with username and profile_pic lookup
+//         const today = new Date();
+//         const currentDate = new Date();
+//         const dayOfMonth = currentDate.getUTCDate(); // Use getUTCDate to get the day in UTC
+//         let startDate, endDate;
+//         if (dayOfMonth >= 1 && dayOfMonth <= 15) {
+//             // Current date is between 1st and 15th day of the month
+//             startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
+//             endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
+//         } else {
+//             // Current date is after the 15th day of the month
+//             startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
+//             endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+//         }
+//         const data = await getTopUsersReceiver({
+//             dateRange: {
+//                 $gte: startDate, //new Date(today.setHours(0, 0, 0)),
+//                 $lt: endDate //new Date(today.setHours(23, 59, 59))
+//             },
+//             transaction_type: "credited",
+//             entity_type: "stickers-gifting"
+//         });
+//         // Weekly aggregation with username and profile_pic lookup
+//         const startOfWeek = new Date(today);
+//         startOfWeek.setDate(today.getDate() - today.getDay());
+//         const endOfWeek = new Date(startOfWeek);
+//         endOfWeek.setDate(startOfWeek.getDate() + 7);
+//         const weeklyData = await getTopUsersReceiver({
+//             dateRange: {
+//                 $gte: startOfWeek,
+//                 $lt: endOfWeek
+//             },
+//             transaction_type: "credited",
+//             entity_type: "stickers-gifting"
+
+//         });
+//         // Monthly aggregation with username and profile_pic lookup
+//         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+//         const monthlyData = await getTopUsersReceiver({
+//             dateRange: {
+//                 $gte: startOfMonth,
+//                 $lt: new Date(today.getFullYear(), today.getMonth() + 1, 1)
+//             },
+//             transaction_type: "credited",
+//             entity_type: "stickers-gifting"
+
+//         });
+//         const userIDs = data.concat(weeklyData, monthlyData).map(user => user.sender_id);
+//         const userLevelPromises = userIDs.map(user_id => axios.post(`${API.Api}/giftTransation/getLevel`, { user_id }));
+//         const userLevels = await Promise.all(userLevelPromises);
+
+//         // Add level field to each user in the data
+//         data.forEach((user, index) => {
+//             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
+//         });
+
+//         weeklyData.forEach((user, index) => {
+//             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
+//         });
+
+//         monthlyData.forEach((user, index) => {
+//             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
+//         });
+
+//         // await client.SETEX('topReceiver', 900, JSON.stringify({
+//         //     currentDay: data,
+//         //     currentWeek: weeklyData,
+//         //     currentMonth: monthlyData
+//         // }));
+
+//         return res.status(200).json({
+//             success: true,
+//             data: {
+//                 currentDay: data,
+//                 currentWeek: weeklyData,
+//                 currentMonth: monthlyData
+//             }
+//         });
+//     } catch (error) {
+//         return next(error);
+//     }
+// }));
 
 
 //Top user / overAll
 
 router.route('/top-sender').get(asyncErrorHandler(async (req, res, next) => {
-    try {
-        // let isTopSender = await client.GET('topSender');
-        // if (isTopSender) {
-        //     isTopSender = JSON.parse(isTopSender);
-        //     return res.status(200).json({
-        //         success: true,
-        //         data: isTopSender
-        //     });
-        // }
-        // Current day aggregation with username and profile_pic lookup
-        const today = new Date();
-        const currentDate = new Date();
-        const dayOfMonth = currentDate.getUTCDate(); // Use getUTCDate to get the day in UTC
-        let startDate, endDate;
-        if (dayOfMonth >= 1 && dayOfMonth <= 15) {
-            // Current date is between 1st and 15th day of the month
-            startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
-            endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
-        } else {
-            // Current date is after the 15th day of the month
-            startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
-            endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-        }
-        const data = await getTopUsers({
-            dateRange: {
-                $gte: startDate, //new Date(today.setHours(0, 0, 0)),
-                $lt: endDate //new Date(today.setHours(23, 59, 59))
-            },
-            transaction_type: "debited",
-            entity_type: "stickers-gifting"
-        });
-        // Weekly aggregation with username and profile_pic lookup
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - today.getDay());
-        
-        const endOfWeek = new Date(startOfWeek);
-        endOfWeek.setDate(startOfWeek.getDate() + 7);
-
-        const weeklyData = await getTopUsers({
-            dateRange: {
-                $gte: startOfWeek,
-                $lt: endOfWeek
-            },
-            transaction_type: "debited",
-            entity_type: "stickers-gifting"
-        });
-        // Monthly aggregation with username and profile_pic lookup
-        const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-        const monthlyData = await getTopUsers({
-            dateRange: {
-                $gte: startOfMonth,
-                $lt: new Date(today.getFullYear(), today.getMonth() + 1, 1)
-            },
-            transaction_type: "debited",
-            entity_type: "stickers-gifting"
-        });
-        const userIDs = data.concat(weeklyData, monthlyData).map(user => user.sender_id);
-        const userLevelPromises = userIDs.map(user_id => axios.post(`${API.Api}/giftTransation/getLevel`, { user_id }));
-        const userLevels = await Promise.all(userLevelPromises);
-        
-        // Add level field to each user in the data 
-
-        data.forEach((user, index) => {
-            user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
-        });
-        weeklyData.forEach((user, index) => {
-            user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
-        });
-        monthlyData.forEach((user, index) => {
-            user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
-        });
-
-        // await client.SETEX('topSender', 900, JSON.stringify({
-        //     currentDay: data,
-        //     currentWeek: weeklyData,
-        //     currentMonth: monthlyData
-        // }));
-
-
-        return res.status(200).json({
-            success: true,
-            data: {
-                currentDay: data,
-                currentWeek: weeklyData,
-                currentMonth: monthlyData
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
+    let topSender = await StickerTransacationModel.aggregate([
+        {
+            $match: {
+                role_of_receiver: "host",
             }
-        });
-    } catch (error) {
-        return next(error);
-    }
+        },
+        {
+            $group: {
+                _id: "$sender_UID",
+                total: { $sum: "$giftPrice" }
+            }
+        },
+        {
+            $sort: {
+                total: -1
+            }
+        },
+        {
+            $skip: (page - 1) * limit
+        },
+        {
+            $limit: limit
+        },
+        {
+            $lookup: {
+                from: "user_logins",
+                localField: "_id",
+                foreignField: "UID",
+                as: "user_data"
+            }
+        },
+        {
+            $project: {
+                _id: 0,
+                UID: "$_id",
+                total: 1,
+                user_nick_name: { $arrayElemAt: ["$user_data.user_nick_name", 0] },
+                level: { $arrayElemAt: ["$user_data.level", 0] },
+                user_profile_pic: {
+                    $cond: {
+                        if: {
+                            $eq: [
+                                { $substr: [{ $arrayElemAt: ["$user_data.user_profile_pic", 0] }, 0, 8] },
+                                "https://"
+                            ]
+                        },
+                        then: { $arrayElemAt: ["$user_data.user_profile_pic", 0] },
+                        else: {
+                            $concat: [
+                                `${API.SocketAPI}/users/get-profile-pic/`,
+                                { $arrayElemAt: ["$user_data.user_profile_pic", 0] }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    ]);
+    return res.json({
+        success: true,
+        message: "Top sender",
+        data: topSender
+    });
 }));
+
+
+// router.route('/top-sender').get(asyncErrorHandler(async (req, res, next) => {
+//     try {
+//         // let isTopSender = await client.GET('topSender');
+//         // if (isTopSender) {
+//         //     isTopSender = JSON.parse(isTopSender);
+//         //     return res.status(200).json({
+//         //         success: true,
+//         //         data: isTopSender
+//         //     });
+//         // }
+//         // Current day aggregation with username and profile_pic lookup
+//         const today = new Date();
+//         const currentDate = new Date();
+//         const dayOfMonth = currentDate.getUTCDate(); // Use getUTCDate to get the day in UTC
+//         let startDate, endDate;
+//         if (dayOfMonth >= 1 && dayOfMonth <= 15) {
+//             // Current date is between 1st and 15th day of the month
+//             startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
+//             endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
+//         } else {
+//             // Current date is after the 15th day of the month
+//             startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
+//             endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+//         }
+//         const data = await getTopUsers({
+//             dateRange: {
+//                 $gte: startDate, //new Date(today.setHours(0, 0, 0)),
+//                 $lt: endDate //new Date(today.setHours(23, 59, 59))
+//             },
+//             transaction_type: "debited",
+//             entity_type: "stickers-gifting"
+//         });
+//         // Weekly aggregation with username and profile_pic lookup
+//         const startOfWeek = new Date(today);
+//         startOfWeek.setDate(today.getDate() - today.getDay());
+        
+//         const endOfWeek = new Date(startOfWeek);
+//         endOfWeek.setDate(startOfWeek.getDate() + 7);
+
+//         const weeklyData = await getTopUsers({
+//             dateRange: {
+//                 $gte: startOfWeek,
+//                 $lt: endOfWeek
+//             },
+//             transaction_type: "debited",
+//             entity_type: "stickers-gifting"
+//         });
+//         // Monthly aggregation with username and profile_pic lookup
+//         const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+//         const monthlyData = await getTopUsers({
+//             dateRange: {
+//                 $gte: startOfMonth,
+//                 $lt: new Date(today.getFullYear(), today.getMonth() + 1, 1)
+//             },
+//             transaction_type: "debited",
+//             entity_type: "stickers-gifting"
+//         });
+//         const userIDs = data.concat(weeklyData, monthlyData).map(user => user.sender_id);
+//         const userLevelPromises = userIDs.map(user_id => axios.post(`${API.Api}/giftTransation/getLevel`, { user_id }));
+//         const userLevels = await Promise.all(userLevelPromises);
+        
+//         // Add level field to each user in the data 
+
+//         data.forEach((user, index) => {
+//             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
+//         });
+//         weeklyData.forEach((user, index) => {
+//             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
+//         });
+//         monthlyData.forEach((user, index) => {
+//             user.level = userLevels[index].data.data.rSide ? userLevels[index].data.data.rSide : null;
+//         });
+
+//         // await client.SETEX('topSender', 900, JSON.stringify({
+//         //     currentDay: data,
+//         //     currentWeek: weeklyData,
+//         //     currentMonth: monthlyData
+//         // }));
+
+
+//         return res.status(200).json({
+//             success: true,
+//             data: {
+//                 currentDay: data,
+//                 currentWeek: weeklyData,
+//                 currentMonth: monthlyData
+//             }
+//         });
+//     } catch (error) {
+//         return next(error);
+//     }
+// }));
 
 
 

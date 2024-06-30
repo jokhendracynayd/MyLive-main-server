@@ -5,8 +5,7 @@ const TableName = "transaction";
 const TableSchema = mongoose.Schema({
   transaction_id: {
     type: String,
-    required: true,
-    unique: true,
+    required: true, 
   },
   transaction_type: {
     type: String,
