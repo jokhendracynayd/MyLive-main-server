@@ -84,7 +84,7 @@ router.route('/top-daily-sender/:UID').get(asyncErrorHandler(async (req, res, ne
                         else: {
                             $concat: [
                                 `${API.SocketAPI}/users/get-profile-pic/`,
-                                { $arrayElemAt: ["$user_data.user_profile_pic", 0] }
+                                { $arrayElemAt: ["$user_data.UID", 0] }
                             ]
                         }
                     }
@@ -382,11 +382,7 @@ router.route('/top-gamer').get(asyncErrorHandler(async (req, res, next) => {
 
         return res.status(200).json({
             success: true,
-            data: {
-                currentDay: data,
-                // currentWeek: weeklyData,
-                // currentMonth: monthlyData
-            },
+            data,
             pagination: {
                 page,
                 limit
@@ -452,7 +448,7 @@ router.route('/top-receiver').get(asyncErrorHandler(async (req, res, next) => {
                         else: {
                             $concat: [
                                 `${API.SocketAPI}/users/get-profile-pic/`,
-                                { $arrayElemAt: ["$user_data.user_profile_pic", 0] }
+                                { $arrayElemAt: ["$user_data.UID", 0] }
                             ]
                         }
                     }
@@ -617,7 +613,7 @@ router.route('/top-sender').get(asyncErrorHandler(async (req, res, next) => {
                         else: {
                             $concat: [
                                 `${API.SocketAPI}/users/get-profile-pic/`,
-                                { $arrayElemAt: ["$user_data.user_profile_pic", 0] }
+                                { $arrayElemAt: ["$user_data.UID", 0] }
                             ]
                         }
                     }

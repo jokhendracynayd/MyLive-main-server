@@ -2,61 +2,171 @@ const mongoose = require("mongoose");
 
 const TableName = "live_streaming";
 
-const TableSchema = mongoose.Schema({
-  user_id: {
+
+const UserJoinedOnSeatSchema = new mongoose.Schema({
+  onseat_UID: {
     type: String,
+    required:true
+  },
+  onseat_user_details:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:'user_login'
+  },
+  request_accept_status: {
+    type: String,
+    enum: ['pending','accepted','denied', 'expired'],
+    default:'pending'
+  },
+  request_sent_by: {
+    type: String,
+    enum: ['host','audience'],
+  },
+  seatNo: {
+    type: Number,
+  },
+  voiceMute:{
+    type:Boolean,
+    default:false
+  },
+  videoMute:{
+    type:Boolean,
+    default:false
+  },
+  coins:{
+    type:Number,
+    default:0
+  }
+  // role:{
+  //   type:String,
+  //   enum:['audience','broadcast'],
+  //   default:'audience'
+  // },
+  // agora_ud:{
+  //   type:String
+  // }
+},{timestamps:true});
+
+const UserJoinedSchema = new mongoose.Schema({
+  joined_user_details:{
+    type:mongoose.Schema.Types.ObjectId,
     required:true,
+    ref:'user_login'
+  },
+  joined_times:{
+    type:Number,
+    default:1
+  },
+  textMute:{
+    type:Boolean,
+    default:false
+  },
+  joined_UID:{
+    type:String,
+    required:true
+  },
+  joined_status:{
+    type:String,
+    enum:["yes","no"],
+    default:"yes"
+  },
+  role:{
+    type:String,
+    enum:["audience","broadcast"],
+    default:"audience"
+  },
+  kickOut:{
+    type:String,
+    enum:["yes","no"],
+    default:"no"
+  },
+},{
+  timestamps:true
+});
+
+
+const TableSchema = mongoose.Schema({
+  UID: {
+    type: String,
+    required:[true, 'UID is required to create live streaming'],
   },
   live_streaming_channel_id: {
     type: String,
+    required:[ true, 'Live streaming channel id is required to create live streaming']
   },
   live_streaming_token: {
     type: String,
   },
+  star:{
+    type:Number,
+    default:0
+  },
+  backGroundImage:{
+    type:String,
+    default:"aesthentic_night.jpeg"
+  },
   live_streaming_type: {
     type: String,
     enum: ["live_streaming", "live_audio_party"],
+    // required:[ true, 'Live streaming type is required' ]
+  },
+  voiceMute:{
+    type:Boolean,
+    default:false
+  },
+  videoMute:{
+    type:Boolean,
+    default:false
   },
   live_name: {
     type: String,
   },
+  live_description: {
+    type: String,
+  },
+  role: {
+    type: String,
+    enum: ["host", "co-host"],
+    default: "host",
+  },
+  userJoined:[UserJoinedSchema],
+  userJoinedOnSeat:[UserJoinedOnSeatSchema],
+
   live_streaming_start_time: {
     type: Date,
+    default: new Date(),
   },
   live_streaming_end_time: {
     type: Date,
   },
+  ended_by:{
+    enum:["host","admin","system","while creating new live streaming"],
+    type:String
+  },
   live_streaming_current_status: {
     type: String,
     enum: ["live", "ended"],
-  },
-  ended_by:{
-    type:String
+    default: "live",
   },
   coins:{
     type:Number,
     default:0,
   },
-  created_at: {
-    type: Date,
-    default: new Date(),
-  },
-  created_by: {
-    type: String,
+  agora_ud:{
+    type:String,
   },
   last_update: {
     type: Date,
-    default: new Date(),
+    default: () => new Date(Date.now() + 10000),
   },
-  delete_status: {
-    type: String,
-  },
-  agora_ud:{
-    type:String,
-  }
+},{
+  timestamps: {
+    createdAt:true, 
+    updatedAt: false
+  }  
 });
 
 const Table = (module.exports = mongoose.model(TableName, TableSchema));
+
 
 module.exports.Table = Table;
 

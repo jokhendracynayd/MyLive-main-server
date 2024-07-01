@@ -311,9 +311,9 @@ router.route("/getGiftedData/:userId").get(asyncErrorHandler(async (req, res, ne
 
 
 
-router.route("/getLiveDurationAndCoins/:userId").get(asyncErrorHandler(async (req, res, next) => {
-  const userId = req.params.userId;
-  if (!userId)
+router.route("/getLiveDurationAndCoins/:UID").get(asyncErrorHandler(async (req, res, next) => {
+  const UID = req.params.UID;
+  if (!UID)
     return res.json({ success: false, msg: "User id is required" });
   const currentDate = new Date();
   const dayOfMonth = currentDate.getUTCDate(); // Use getUTCDate to get the day in UTC
@@ -332,7 +332,7 @@ router.route("/getLiveDurationAndCoins/:userId").get(asyncErrorHandler(async (re
   const data = await TableModel.Table.aggregate([
     {
       $match: {
-        user_id: userId,
+        UID: UID,
         live_streaming_end_time: { $exists: true },
         live_streaming_start_time: { $gte: startDate, $lte: endDate },
       },
@@ -342,7 +342,7 @@ router.route("/getLiveDurationAndCoins/:userId").get(asyncErrorHandler(async (re
         live_streaming_start_time: 1,
         live_streaming_end_time: 1,
         coins: 1,
-        live_name: 1,
+        live_streaming_type: 1,
       },
     },
     {
