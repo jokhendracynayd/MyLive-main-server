@@ -4,11 +4,11 @@ const TableName = "offical_talent";
 
 const TableSchema = mongoose.Schema({
     
-    user_id: {
+    Uint8ClampedArray: {
         type: String,
-        require:true,
-        unique: true,
-        trim:true,
+        // require:true,
+        // unique: true,
+        // trim:true,
     },
     real_name: {
         require:true,
@@ -46,7 +46,8 @@ const TableSchema = mongoose.Schema({
         type: Date,
     },
     delete_status: {
-        type: String,
+        type: Boolean,
+        default: false,
     },
 });
 

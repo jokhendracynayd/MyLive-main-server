@@ -15,81 +15,95 @@ const API=require('../config/api');
 const {ObjectId}=require('mongoose').Types;
 const UserGiftingTable = require("../models/m_user_gifting");
 const AgencyModel = require("../models/m_agency_info");
+const {upload4} = require('./file');
+
 
 // TODO: New API for host create
-
-router.route('/create').post(asyncErrorHandler(async (req, res) => {
-      let { user_id, real_name, streaming_type, agencyId, IDPicPath, email } = req.body;
-      // Validate the data first using some function
-      let validateFields = [user_id, real_name, streaming_type, agencyId, IDPicPath, email];
-      let isValid = validateFields.every(ele => ele && ele !== undefined && ele !== null);
+router.route('/create').post(upload4.single('file'), asyncErrorHandler(async (req, res) => {
+    let { UID, real_name, streaming_type, agencyId, email } = req.body;
+    let IDPicPath = req.file ? req.file.path : null; // Get the path of the uploaded file
+    // Validate the data first using some function
+    let validateFields = [UID, real_name, streaming_type, agencyId, IDPicPath, email];
+    let isValid = validateFields.every(ele => ele && ele !== undefined && ele !== null);
   
-      if (!isValid) {
-        return res.json({
-          success: false,
-          msg: "All fields are required",
-        });
-      }
-  
-      // Check if the user is already a host or not
-      let checkHost = await TableModel.Table.findOne({ user_id: user_id });
-  
-      if (checkHost) {
-        return res.json({
-          success: false,
-          msg: "User is already a host",
-        });
-      }
-
-      // check is agency id is valid or not
-
-      // Normalize and process the data
-      email = email.toLowerCase().trim().normalize('NFKC');
-      streaming_type = streaming_type.toLowerCase().trim().normalize('NFKC');
-      
-    //   for (let char of agencyId) {
-    //     if(!char.charCodeAt(0)>=48&&!char.charCodeAt(0)<=57){
-    //         return res.json({
-    //             success: false,
-    //             show: true, 
-    //             msg: "Please enter normal characters in agency id",
-    //         });
-    //     }
-    //   }
-        const agency = await AgencyModel.Table.findOne({ agency_code: agencyId });
-        if (!agency) {
-            return res.json({
-                  success: false,
-                  msg: "Agency id is not valid",
-              });
-          }
-      // Create a new host
-      const newRow = new TableModel.Table({
-        user_id: user_id,
-        real_name: real_name,
-        streaming_type: streaming_type,
-        agencyId: agencyId,
-        IDPicPath: IDPicPath,
-        email: email,
+    if (!isValid) {
+      return res.json({
+        success: false,
+        msg: "All fields are required",
       });
+    }
   
-      const IsNewHost = await newRow.save();
+    // Check if the user is already a host or not
+    let checkHost = await TableModel.Table.findOne({ UID: UID });
   
-      if (IsNewHost) {
-        return res.json({
-          success: true,
-          msg: "Host created",
-          data: IsNewHost,
-        });
-      } else {
-        return res.json({
-          success: false,
-          msg: "Host not created",
-        });
-      }
-    
+    if (checkHost) {
+      return res.json({
+        success: false,
+        msg: "User is already a host",
+      });
+    }
+  
+    // Check if agency id is valid or not
+    const agency = await AgencyModel.Table.findOne({ agency_code: agencyId });
+    if (!agency) {
+      return res.json({
+        success: false,
+        msg: "Agency id is not valid",
+      });
+    }
+  
+    // Normalize and process the data
+    email = email.toLowerCase().trim().normalize('NFKC');
+    streaming_type = streaming_type.toLowerCase().trim().normalize('NFKC');
+  
+    // Create a new host
+    const newRow = new TableModel.Table({
+      UID: UID,
+      real_name: real_name,
+      streaming_type: streaming_type,
+      agencyId: agencyId,
+      IDPicPath: IDPicPath,
+      email: email,
+    });
+  
+    const IsNewHost = await newRow.save();
+  
+    if (IsNewHost) {
+      return res.json({
+        success: true,
+        msg: "Host created",
+        data: IsNewHost,
+      });
+    } else {
+      return res.json({
+        success: false,
+        msg: "Host not created",
+      });
+    }
 }));
-  
+
+
+router.route('/form-status/:UID').get(asyncErrorHandler(async(req, res) => {
+    const UID = req.params.UID;
+    if (!UID) {
+      return res.json({ 
+        success: false,
+        msg: "UID is required"
+      });
+    }
+    const data = await TableModel.Table.findOne({ UID: UID ,delete_status:false});
+    if(data){
+      return res.json({
+          success:true,
+          msg:"Data",
+          data:data.host_status
+      })
+    }
+    return res.json({
+      success: true,
+      msg: "Apply for host",
+    });
+}));
 
 router.get('/agency-portal-official-talent/:agency_code',asyncErrorHandler(async(req,res)=>{
     const agency_code=req.params.agency_code;

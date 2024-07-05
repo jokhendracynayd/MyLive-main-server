@@ -591,12 +591,12 @@ router.route("/followers-followings/:UID").get(
     let users = await TableModel.Table.find({
       $or: [{ primary_UID: UID }, { following_UID: UID }],
     });
-    let followers = users.filter(
+    let followings = users.filter(
       (user) =>
         (user.primary_UID == UID && user.status) ||
         (user.following_UID == UID && user.status)
     ).length;
-    let followings = users.filter(
+    let followers = users.filter(
       (user) =>
         (user.primary_UID == UID && user.followBacked) ||
         (user.following_UID == UID && user.followBacked)
@@ -812,6 +812,10 @@ router.route("/followings-list/:UID").get(
     })
       .skip(skip)
       .limit(limit);
+      console.log(users.length);
+    users.forEach((user) => {
+      console.log(user);
+    });
     let userIds = users.map((user) =>
       user.primary_UID == UID ? user.following_UID : user.primary_UID
     );
@@ -831,6 +835,7 @@ router.route("/followings-list/:UID").get(
         UID: user.UID,
       };
     });
+    console.log(usersWithDetails.length);
     return res.json({
       success: true,
       data: usersWithDetails,

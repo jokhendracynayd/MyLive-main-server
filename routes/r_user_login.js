@@ -838,8 +838,9 @@ router.get('/byId/:id',
 router.post('/byField-user',asyncErrorHandler(async(req,res,next)=>{
     const fieldName = req.body.fieldName;
     const fieldValue = req.body.fieldValue;
+    console.log(fieldName,fieldValue);
     if(fieldName && fieldValue){
-        const IsUser = await TableModel.Table.findOne({username:fieldValue},{username:1,user_nick_name:1});
+        const IsUser = await TableModel.Table.findOne({UID:fieldValue},{UID:1,user_nick_name:1});
         if(IsUser){
             return res.json({
                 success:true,

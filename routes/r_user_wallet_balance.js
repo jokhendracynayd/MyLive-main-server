@@ -10,6 +10,7 @@ const mongoose = require('mongoose');
 const asyncErrorHandler = require('../utilis/asyncErrorHandler');
 const crypto = require('crypto');
 const {sendRechargeMessage} = require('../controllers/send.recharge.messge');
+const UserLoginModel = require('../models/m_user_login');
 router.post('/create',
     // passport.authenticate("jwt", { session: false }),
     (req, res) => {
@@ -171,7 +172,7 @@ router.put('/rechargeUser',asyncErrorHandler(async(req,res,next)=>{
             msg:"Invalid Data"
         })
     }
-    const IsUserWalletDetails = await TableModel.Table.findOne({user_id:user_id});
+    const IsUserWalletDetails = await UserLoginModel.Table.findOne({UID:user_id},{Udiamonds:1});
     if(!IsUserWalletDetails){
         return res.json({
             success:false,
@@ -198,8 +199,8 @@ router.put('/rechargeUser',asyncErrorHandler(async(req,res,next)=>{
             receiver_type : "user",
             sender_id : resellerId,
             receiver_id : user_id,
-            before_tran_balance : IsUserWalletDetails.user_diamond,
-            after_tran_balance : IsUserWalletDetails.user_diamond + coins,
+            before_tran_balance : IsUserWalletDetails.Udiamonds,
+            after_tran_balance : IsUserWalletDetails.Udiamonds + coins,
             user_wallet_type_from : "diamonds",
             user_wallet_type_to : "diamonds",
         }
@@ -227,8 +228,8 @@ router.put('/rechargeUser',asyncErrorHandler(async(req,res,next)=>{
         }
 
         // update the balance of user
-        let newUserBalance = IsUserWalletDetails.user_diamond + coins;
-        let updateUserBalance = await TableModel.Table.updateOne({user_id:user_id},{user_diamond:newUserBalance},{new:true});
+        let newUserBalance = IsUserWalletDetails.Udiamonds + coins;
+        let updateUserBalance = await UserLoginModel.Table.updateOne({UID:user_id},{Udiamonds:newUserBalance},{new:true});
         if(!updateUserBalance.ok){
                 
                 /**
@@ -314,7 +315,7 @@ router.put('/rechargeUser',asyncErrorHandler(async(req,res,next)=>{
         const formattedDateTime = formatter.format(new Date());
         const message = `Great news! At ${formattedDateTime}, your reseller credited your account with ${coins} diamonds. Dive into your upgraded experience and make the most of it! Happy exploring`;
         // let message = `${coins} diamonds added to your account`;
-        let ok = await sendRechargeMessage("11111",user_id,message);
+        // let ok = await sendRechargeMessage("11111",user_id,message);
         return res.json({
             success:true,
             msg:"Recharge Success"

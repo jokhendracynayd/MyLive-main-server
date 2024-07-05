@@ -48,6 +48,7 @@ var store4 = multer.diskStorage({
         cb(null, Date.now() + "_" + file.originalname);
     }
 });
+var upload4 = multer({ storage: store4 });
 
 var store5=multer.diskStorage({
     destination:function (req,file,cb){
@@ -71,10 +72,8 @@ let store6 = multer.diskStorage({
 var upload = multer({ storage: store }).single("file");
 var upload2 = multer({ storage: store2 }).single("file");
 var upload3 = multer({ storage: store3 }).single("file");
-var upload4 = multer({ storage: store4 }).single("file");
 var upload5 = multer({ storage: store5 }).single("file");
 var upload6 = multer({ storage: store6 }).single("file");
-
 
 
 // ############################# Uploading Routes ########################
@@ -246,4 +245,5 @@ _router.get("/vipItems/:filename", function (req, res, next) {
 //       }
 // });
 
-module.exports = _router;
+
+module.exports = {_router, upload4 };

@@ -387,6 +387,7 @@ router.post('/loginFromAdminPanel',
                     msg:err.message
                 })
             }else{
+                console.log("this is user",user);
                 if(user==null){
                     return res.status(500).json({
                         success:false,

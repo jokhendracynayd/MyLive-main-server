@@ -34,8 +34,8 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(express.json({ limit: "50mb" })); // req.body ---> form data fetch krne ke lie || body parser can also be used in this place.
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-const file = require("./routes/file");
-app.use("/api/file", file);
+const {_router} = require("./routes/file");
+app.use("/api/file", _router);
 
 const fileConvert=require('./routes/convertTopdf/r_fileConvert');
 app.use("/api/fileConvert",fileConvert);

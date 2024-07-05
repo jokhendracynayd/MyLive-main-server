@@ -45,13 +45,13 @@ const profitController = async(req,res)=>{
 }
 
 const currentGameProfit = async(req,res)=>{
-  const fruitProfit = await client.GET('fruitGameRev');
-  const teenPattiGameRev = await client.GET("teenPattiGameRev")
+  // const fruitProfit = await client.GET('fruitGameRev');
+  // const teenPattiGameRev = await client.GET("teenPattiGameRev")
   return res.json({
     success:true,
     data:{
-      fruitProfit,
-      teenPattiGameRev
+      fruitProfit:0,
+      teenPattiGameRev:0
     }
   })
 }
