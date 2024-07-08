@@ -4,11 +4,11 @@ const TableName = "offical_talent";
 
 const TableSchema = mongoose.Schema({
     
-    Uint8ClampedArray: {
+    UID: {
         type: String,
-        // require:true,
-        // unique: true,
-        // trim:true,
+        require:true,
+        unique: true,
+        trim:true,
     },
     real_name: {
         require:true,
@@ -31,6 +31,10 @@ const TableSchema = mongoose.Schema({
         type: String,
         trim:true,
     },
+    mobile_no: {
+        type: String,
+        trim:true
+    },
     host_status: {
         type: String,
         enum:['pending','accepted','rejected','deleted'],
@@ -38,6 +42,7 @@ const TableSchema = mongoose.Schema({
     },
     created_at: {
         type: Date,
+        default: new Date(),
     },
     created_by: {
         type: String,

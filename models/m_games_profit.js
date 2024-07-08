@@ -12,6 +12,10 @@ const TableSchema = new mongoose.Schema({
     type:Number,
     require:[true,"This field required"]
   },
+  greedy_game_profit:{
+    type:Number,
+    require:[true,"This field required"]
+  },
   date:{
     type:String,
   }

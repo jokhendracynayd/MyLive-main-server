@@ -31,6 +31,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
+// take multipart form data
 app.use(express.json({ limit: "50mb" })); // req.body ---> form data fetch krne ke lie || body parser can also be used in this place.
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 

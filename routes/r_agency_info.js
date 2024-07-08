@@ -45,6 +45,47 @@ router.route('/change-agency-passwrod').put(asyncErrorHandler(async(req,res,next
 
 
 
+router.route('/create').post(asyncErrorHandler(async(req,res,next)=>{
+    const {email,username,password,agency_code,special_approval_name,user_profile_pic ,adhar_card_front_pic}=req.body;
+    // validate all fields
+    if(!email || !username || !password || !agency_code || !special_approval_name || !user_profile_pic || !adhar_card_front_pic){
+        return res.json({
+            success:false,
+            msg:"All fields are required"
+        })
+    }
+    // check agency already exist or not with email ,username and agency_code
+    let isAgency = await TableModel.Table.findOne({$or:[{email},{username},{agency_code}]});
+    if(isAgency){
+        return res.json({
+            success:false,
+            msg:"Agency already exist with this email,username or agency_code"
+        })
+    }
+    // create new agency
+    let newAgency = new TableModel.Table({
+        email,
+        username,
+        password,
+        agency_code,
+        special_approval_name,
+        user_profile_pic,
+        adhar_card_front_pic
+    });
+    let agency = await newAgency.save();
+    if(agency){
+        return res.json({
+            success:true,
+            msg:"Agency created",
+            data:agency
+        })
+    }
+    return res.json({
+        success:false,
+        msg:"Agency not created"
+    })
+}));
+
 
 router.post('/create',
     //// passport.authenticate("jwt", { session: false }),

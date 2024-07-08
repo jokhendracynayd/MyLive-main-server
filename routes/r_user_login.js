@@ -744,75 +744,21 @@ router.get('/',
 );
 
 
+//TODO:// This router for amdin panel only
 
-//  This for admin panel
-
-router.get('/adminUser',(req,res)=>{
-    TableModel.adminUser((err, docs) => {
-        if (err) {
-            return rc.setResponse(res, {
-                msg: err.message
-            })
-        } else {
-          res.json({
-            success:true,
-            msg:"data fetched",
-            data:docs
-          })
-        }
-    })
-})
-
-
-router.get('/newadminUser',(req,res)=>{
-    TableModel.getData((err, docs) => {
-        if(err){
-            return rc.setResponse(res, {
-                msg: err.message
-            })
-        }else{
-            setUserCoin(docs,(response)=>{
-                return rc.setResponse(res,{
-                    success:true,
-                    msg:'data fetched',
-                    data:response
-                })
-            })
-            function setUserCoin(data,callback){
-                let count=0;
-                let sendToData=[];
-                data.forEach(ele=>{
-                    let query={"user_id":ele.username}        
-                    TableModelUserBalance.getDataByField(query,(err,doc)=>{
-                        if(err){
-                            res.json({
-                                success:false,
-                                msg:err.message
-                            })
-                        }else{
-                            if(doc!=null){
-                                ele._doc.r_coin=doc.user_rcoin;
-                                ele._doc.diamond=doc.user_diamond;
-                                sendToData.push(ele);
-                                count++;
-                                if(data.length==count){
-                                    callback(sendToData);
-                                }
-                            }else{
-                                ele.r_coin=0;
-                                sendToData.push(ele);
-                                count++;
-                                if(data.length==count){
-                                    callback(sendToData);
-                                }
-                            }
-                        }
-                    })
-                })
-            }
-        }
+router.route('/admin-users').get(asyncErrorHandler(async (req, res, next) => {
+    let page = parseInt(req.query.page) || 1;
+    let limit = parseInt(req.query.limit) || 10;
+    let users = await TableModel.Table
+    .find({},{_id:1,UID:1,user_nick_name:1,email:1,mobile:1,Ucoins:1,Udiamonds:1,status:1})
+    .sort({ Ucoins: -1, Udiamonds: -1 });
+    // console.log(users);
+    return res.json({
+        success: true,
+        data: users
     });
-})
+}));
+
 
 
 router.get('/byId/:id',

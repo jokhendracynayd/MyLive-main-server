@@ -20,9 +20,8 @@ const {upload4} = require('./file');
 
 // TODO: New API for host create
 router.route('/create').post(upload4.single('file'), asyncErrorHandler(async (req, res) => {
-    let { UID, real_name, streaming_type, agencyId, email } = req.body;
-    let IDPicPath = req.file ? req.file.path : null; // Get the path of the uploaded file
-    // Validate the data first using some function
+    let { UID, real_name, streaming_type, agencyId, email,mobile_no } = req.body;
+    let IDPicPath = req.file.filename;
     let validateFields = [UID, real_name, streaming_type, agencyId, IDPicPath, email];
     let isValid = validateFields.every(ele => ele && ele !== undefined && ele !== null);
   
@@ -33,8 +32,8 @@ router.route('/create').post(upload4.single('file'), asyncErrorHandler(async (re
       });
     }
   
-    // Check if the user is already a host or not
-    let checkHost = await TableModel.Table.findOne({ UID: UID });
+    // Check if the user is already a host or not with UID or email
+    let checkHost = await TableModel.Table.findOne({ $or: [{ UID: UID }, { email: email }] });
   
     if (checkHost) {
       return res.json({
@@ -44,7 +43,7 @@ router.route('/create').post(upload4.single('file'), asyncErrorHandler(async (re
     }
   
     // Check if agency id is valid or not
-    const agency = await AgencyModel.Table.findOne({ agency_code: agencyId });
+    const agency = await AgencyModel.Table.findOne({ agency_code: agencyId,approval_status:"Approved" });
     if (!agency) {
       return res.json({
         success: false,
@@ -64,6 +63,7 @@ router.route('/create').post(upload4.single('file'), asyncErrorHandler(async (re
       agencyId: agencyId,
       IDPicPath: IDPicPath,
       email: email,
+      mobile_no,
     });
   
     const IsNewHost = await newRow.save();

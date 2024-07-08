@@ -20,26 +20,26 @@ const TableSchema = mongoose.Schema({
         type: String,
         default: '',
     },
-    deposit_amount: {
-        type: Number,
-        require:true,
-    },
-    bank_name: {
-        type: String,
-        require:true,
-    },
-    account_number: {
-        type: String,
-        require:true,
-    },
-    ifsc_code: {
-        type: String,
-        require:true
-    },
-    payment_method: {
-        type: String,
-        require:true
-    },
+    // deposit_amount: {
+    //     type: Number,
+    //     require:true,
+    // },
+    // bank_name: {
+    //     type: String,
+    //     require:true,
+    // },
+    // account_number: {
+    //     type: String,
+    //     require:true,
+    // },
+    // ifsc_code: {
+    //     type: String,
+    //     require:true
+    // },
+    // payment_method: {
+    //     type: String,
+    //     require:true
+    // },
     agency_code: {
         type: String,
         require:true,
@@ -57,12 +57,6 @@ const TableSchema = mongoose.Schema({
         type: String,
         require:true
     },
-    created_at: {
-        type:Date,
-    },
-    created_by: {
-        type: String,
-    },
     user_profile_pic: {
         type: String,
         default: 'defaultDocumentPassPortImg.jpg'
@@ -71,18 +65,18 @@ const TableSchema = mongoose.Schema({
         type: String,
         default: 'defaultDocumentImg.jpg'
     },
-    adhar_card_back_pic: {
-        type: String,
-        default: 'defaultDocumentImg.jpg'
-    },
-    pan_card_front_pic: {
-        type: String,
-        default: 'defaultDocumentImg.jpg'
-    },
-    gov_proof_pic: {
-        type: String,
-        default: 'defaultDocumentImg.jpg'
-    },
+    // adhar_card_back_pic: {
+    //     type: String,
+    //     default: 'defaultDocumentImg.jpg'
+    // },
+    // pan_card_front_pic: {
+    //     type: String,
+    //     default: 'defaultDocumentImg.jpg'
+    // },
+    // gov_proof_pic: {
+    //     type: String,
+    //     default: 'defaultDocumentImg.jpg'
+    // },
     approval_status: {
         type: String,
         enum: ['Pending', 'Approved', 'Rejected'],

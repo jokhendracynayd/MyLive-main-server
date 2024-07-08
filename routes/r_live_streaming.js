@@ -269,7 +269,7 @@ async function fetchData(userId, startDate, endDate){
 }
 
 
-router.route("/getGiftedData/:userId").get(asyncErrorHandler(async (req, res, next) => {
+router.route("/getGiftedData/:userId").get(asyncErrorHandler(async (req, res, _) => {
   const userId = req.params.userId;
   if (!userId)
     return res.json({ success: false, msg: "User id is required" });
@@ -311,7 +311,7 @@ router.route("/getGiftedData/:userId").get(asyncErrorHandler(async (req, res, ne
 
 
 
-router.route("/getLiveDurationAndCoins/:UID").get(asyncErrorHandler(async (req, res, next) => {
+router.route("/getLiveDurationAndCoins/:UID").get(asyncErrorHandler(async (req, res, _) => {
   const UID = req.params.UID;
   if (!UID)
     return res.json({ success: false, msg: "User id is required" });
@@ -429,6 +429,24 @@ router.post(
   }
 );
 
+
+router.route('/current-live-streaming').post(asyncErrorHandler(async (req, res, _) => {
+  const fieldNames = req.body.fieldNames;
+  const fieldValues = req.body.fieldValues;
+  let query = {};
+  for (let i = 0; i < fieldNames.length; i++) {
+    const fieldName = fieldNames[i];
+    const fieldValue = fieldValues[i];
+    query[fieldName] = fieldValue;
+  }
+  let data = await TableModel.Table.find(query,{
+    live_streaming_start_time:1,UID:1,_id:1,
+    live_streaming_current_status:1,live_streaming_type:1,
+    createdAt:1
+  });
+  return res.json({success:true, msg:"Data fetched", data:data});
+}));
+
 router.post("/byFields", (req, res) => {
   const fieldNames = req.body.fieldNames;
   const fieldValues = req.body.fieldValues;
@@ -443,6 +461,7 @@ router.post("/byFields", (req, res) => {
           msg: "No data found",
         });
       }
+      console.log(docs,"this is docs");
       return rc.setResponse(res, {
         success: true,
         msg: "Data Fetched",

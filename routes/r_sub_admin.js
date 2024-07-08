@@ -57,68 +57,76 @@ router.post('/create',
 );
 
 
-router.post('/create-reseller',
-    (req, res) => {
-        bcrypt.hash(req.body.password, 10, (err, hash) => {
-            if (err) {
-                res.json({
-                    success: false,
-                    msg: "error!",
-                    data: err.message
-                })
-            }else{
-                const newRow=new TableModel({
-                    name:req.body.name,
-                    email:req.body.email,
-                    mobile:req.body.mobile,
-                    adminRole:req.body.adminRole,
-                    password:req.body.password,
-                    hashPassword:hash
-                })
-                if(!newRow){
-                    return res.json({
-                        success:false,
-                        msg:"Not user created",
-                    })
-                }else{
-                    TableModel.addRow(newRow,(err,doc)=>{
-                        if(err){
-                            
-                            return res.json({
-                                success:false,
-                                msg:err.message
-                            })
-                        }else{
-                            let newResellerAgencyWallet=new ResellerTableModel({
-                                ra_id:doc._id,
-                                ra_r_coin:0,
-                                ra_type:req.body.adminRole,
-                                created_at:Date.now(),
-                                created_by:doc._id,
-                                last_update:Date.now(),
-                                delete_status:"false"
-                            })
-                            ResellerTableModel.addRow(newResellerAgencyWallet,(err,docs)=>{
-                                if(err){
-                                    return res.json({
-                                        success:false,
-                                        msg:err.message
-                                    })
-                                }else{
-                                    return res.json({
-                                        success:true,
-                                        msg:"User created",
-                                        data:doc,
-                                    })
-                                }
-                            })
-                        }
-                    })
-                }
-            }
-        })       
+
+router.route('/create-reseller').post(asyncErrorHandler(async (req, res) => {
+    const {email,password,name,mobile,adminRole}=req.body;
+    // validate all the fields
+    if(!email || !password || !name || !mobile || !adminRole){
+        return res.json({
+            success:false,
+            msg:"All fields are required"
+        })
     }
-);
+    // check if the user already exists or not with email or mobile
+    const user = await TableModel.Table.findOne({$or:[{email},{mobile}]});
+    if(user){
+        return res.json({
+            success:false,
+            msg:"Reseller already exists with this email or mobile"
+        })
+    }
+    // create the new user
+    // hash the password
+    const hashPassword = await bcrypt.hash(password,10);
+    // validate hash password
+    if(!hashPassword){
+        return res.json({
+            success:false,
+            msg:"Something went wrong"
+        })
+    }
+    // create the new user
+    const newUser = new TableModel.Table({
+        name,
+        email,
+        mobile,
+        adminRole,
+        password,
+        hashPassword
+    });
+    // save the user
+    const savedUser = await newUser.save();
+    if(!savedUser){
+        return res.json({
+            success:false,
+            msg:"Reseller not created"
+        })
+    }
+    // create the wallet for the user
+    const newWallet = new ResellerTableModel.Table({
+        ra_id:savedUser._id,
+        ra_r_coin:0,
+        ra_type:adminRole,
+        created_at:Date.now(),
+        created_by:savedUser._id,
+        last_update:Date.now(),
+        delete_status:"false"
+    });
+    // save the wallet
+    const savedWallet = await newWallet.save();
+    if(!savedWallet){
+        return res.json({
+            success:false,
+            msg:"Reseller wallet not created"
+        })
+    }
+    // send the response
+    return res.json({
+        success:true,
+        msg:"Reseller created successfully!",
+        data:savedUser
+    })
+}));
 
 
 router.get('/',
