@@ -87,36 +87,6 @@ router.route('/create').post(asyncErrorHandler(async(req,res,next)=>{
 }));
 
 
-router.post('/create',
-    //// passport.authenticate("jwt", { session: false }),
-    (req, res) => {
-        // const newRow = req.body;
-        const newRow = new TableModel(req.body);
-    
-        // newRow.institute = req.user.institute;
-        if (!newRow) {
-            return rc.setResponse(res, {
-                msg: 'No Data to insert'
-            });
-        }else{
-            TableModel.addRow(newRow, (err, doc) => {
-                if (err) {
-                    return rc.setResponse(res, {
-                        msg: err.message
-                    });
-                } else {
-                    return rc.setResponse(res, {
-                        success: true,
-                        msg: 'Data Inserted',
-                        data: doc
-                    });
-                }
-            });
-        }
-       
-    }
-);
-
 
 
 router.route('/topAgency').get(asyncErrorHandler(async(req,res,next)=>{
@@ -261,129 +231,247 @@ router.post('/makeZero',async(req,res)=>{
     })
 })
 
+//TODO: New API for salary calculation
 
-router.post('/salaryProccess', asyncErrorHandler(async (req, res) => {
-    const { agency_code, days } = req.body;
-    let dataTosend = [];
-    let fieldNames = ["agencyId", "host_status"];
-    let fieldValues = [agency_code, "accepted"]; 
-    HostTable.getDataByFieldNames(fieldNames, fieldValues, async (err, doc) => {
-        if (err) {
-            res.json({
-                success: false,
-                msg: err.message
-            });
-        } else {
-            if (doc.length == 0) {
-                res.json({
-                    success: false,
-                    msg: "No data found"
-                });
-            } else {
-                let count = 0;
-                const currentDate = new Date("2023-12-14T04:28:49.587+00:00");
-                const dayOfMonth = currentDate.getUTCDate();
-                let startDate, endDate;
-                if (dayOfMonth >= 1 && dayOfMonth <= 15) {
-                    // Current date is between 1st and 15th day of the month
-                    startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
-                    endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
-                } else {
-                    // Current date is after the 15th day of the month
-                    startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
-                    endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-                }
-                doc.forEach(ele => {
-                    WalletTable.getDataByFieldOld({ user_id: ele.user_id }, async (err, docs) => {
-                        if (err) {
-                            res.json({
-                                success: false,
-                                msg: err.message
-                            });
-                        } else {
-                            // Check if docs is null or undefined
-                            if (docs == null || typeof docs === 'undefined') {
-                                count++;
-                                if (count == doc.length) {
-                                    res.json({
-                                        success: true,
-                                        msg: 'All Data get',
-                                        data: dataTosend
-                                    });
-                                }
-                            } else {
-                                const data = await LiveStreamingTable.Table.aggregate([
-                                    {
-                                      $match: {
-                                        user_id: ele.user_id,
-                                        live_streaming_end_time: { $exists: true },
-                                        live_streaming_start_time: { $gte: startDate, $lte: endDate },
-                                      },
-                                    },
-                                    {
-                                      $project: {
-                                        live_streaming_start_time: 1,
-                                        live_streaming_end_time: 1,
-                                        coins: 1,
-                                        live_name: 1,
-                                      },
-                                    },
-                                    {
-                                      $addFields: {
-                                        // Calculate the start of the 24-hour interval for each document
-                                        intervalStart: {
-                                          $dateFromParts: {
-                                            year: { $year: "$live_streaming_start_time" },
-                                            month: { $month: "$live_streaming_start_time" },
-                                            day: { $dayOfMonth: "$live_streaming_start_time" },
-                                            hour: 0,
-                                            minute: 0,
-                                            second: 0,
-                                            millisecond: 0,
-                                          },
-                                        },
-                                      },
-                                    },
-                                    {
-                                      $group: {
-                                        _id: "$intervalStart", // Group by the calculated interval start
-                                        data: { $push: "$$ROOT" }, // Store the grouped documents in an array
-                                      },
-                                    },
-                                  ]);
-                                  await newHoursAndCoins(data).then(async response => {
-                                        let dataToPush = {};
-                                        dataToPush.user_id = ele.user_id;
-                                        dataToPush.real_name = ele.real_name;
-                                        dataToPush.agencyId = ele.agencyId;
-                                        dataToPush.coutry = ele.country;
-                                        dataToPush.email = ele.email;
-                                        dataToPush.total_coins = docs.user_rcoin;
-                                        dataToPush.total_hours = response.eligible_hours;
-                                        dataToPush.total_days = response.days;
-                                        dataToPush.join_date = ele.created_at?.toLocaleDateString().split('T')[0] //date_format(ele.created_at);
-                                        dataToPush.streaming_type = ele.streaming_type;
-                                        await getNewTotal_salary(docs.user_rcoin, dataToPush).then(salary => {
-                                            dataTosend.push(salary);
-                                            count++;
-                                            if (count == doc.length) {
-                                                res.json({
-                                                    success: true,
-                                                    msg: 'All Data get',
-                                                    data: dataTosend
-                                                });
-                                            }
-                                        });
-                                  });
-                                
-                            }
-                        }
-                    });
-                });
+router.route('/salaryProccess').post(asyncErrorHandler(async(req,res,_)=>{
+    const {agency_code,days}=req.body;
+    let dataTosend=[];
+    // validate all fields
+    if(!agency_code){
+        return res.json({
+            success:false,
+            msg:"All fields are required"
+        })
+    }
+    const hosts = await HostTable.Table.aggregate([
+        {
+          $match: {
+            agencyId: agency_code,
+            host_status: 'accepted'
+          }
+        },{
+            $lookup: {
+                from: 'user_logins',
+                localField: 'UID',
+                foreignField: 'UID',
+                as: 'userDetails'
+            }
+        },{
+            $unwind: '$userDetails'
+        },{
+            $project: {
+                UID: 1,
+                real_name:1,
+                agencyId: 1,
+                Ucoins:"$userDetails.Ucoins",
+                streaming_type:1,
+                created_at:1
             }
         }
-    });
+      ]);
+    if(!hosts.length){
+        return res.json({
+            success:false,
+            msg:"No host found"
+        })
+    }
+    const currentDate = new Date("2024-07-01T04:28:49.587+00:00");
+    const dayOfMonth = currentDate.getUTCDate();
+    let startDate, endDate;
+    if (dayOfMonth >= 1 && dayOfMonth <= 15) {
+        // Current date is between 1st and 15th day of the month
+        startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
+        endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
+    } else {
+        // Current date is after the 15th day of the month
+        startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
+        endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+    }
+    for (let ele of hosts) {
+        const data = await LiveStreamingTable.Table.aggregate([
+            {
+              $match: {
+                UID: ele.UID,
+                live_streaming_end_time: { $exists: true },
+                live_streaming_start_time: { $gte: startDate, $lte: endDate },
+              },
+            },
+            {
+              $project: {
+                live_streaming_start_time: 1,
+                live_streaming_end_time: 1,
+                coins: 1,
+                live_streaming_type: 1,
+              },
+            },
+            {
+              $addFields: {
+                // Calculate the start of the 24-hour interval for each document
+                intervalStart: {
+                  $dateFromParts: {
+                    year: { $year: "$live_streaming_start_time" },
+                    month: { $month: "$live_streaming_start_time" },
+                    day: { $dayOfMonth: "$live_streaming_start_time" },
+                    hour: 0,
+                    minute: 0,
+                    second: 0,
+                    millisecond: 0,
+                  },
+                },
+              },
+            },
+            {
+              $group: {
+                _id: "$intervalStart", // Group by the calculated interval start
+                data: { $push: "$$ROOT" }, // Store the grouped documents in an array
+              },
+            },
+        ]);
+        let response = await newHoursAndCoins(data);
+        // console.log(response);
+        let dataToPush = {};
+        dataToPush.UID = ele.UID;
+        dataToPush.real_name = ele.real_name;
+        dataToPush.agencyId = ele.agencyId;
+        dataToPush.Ucoins = ele.Ucoins;
+        dataToPush.total_hours = response.eligible_hours;
+        dataToPush.total_days = response.days;
+        dataToPush.join_date = ele.created_at;
+        dataToPush.streaming_type = ele.streaming_type;
+        let salary = await getNewTotal_salary(ele.Ucoins, dataToPush);
+        dataTosend.push(salary);
+    }
+    return res.json({
+        success:true,
+        msg:"All data get",
+        data:dataTosend
+    })
 }));
+
+
+
+// router.post('/salaryProccess', asyncErrorHandler(async (req, res) => {
+//     const { agency_code, days } = req.body;
+//     let dataTosend = [];
+//     let fieldNames = ["agencyId", "host_status"];
+//     let fieldValues = [agency_code, "accepted"]; 
+//     HostTable.getDataByFieldNames(fieldNames, fieldValues, async (err, doc) => {
+//         if (err) {
+//             res.json({
+//                 success: false,
+//                 msg: err.message
+//             });
+//         } else {
+//             if (doc.length == 0) {
+//                 res.json({
+//                     success: false,
+//                     msg: "No data found"
+//                 });
+//             } else {
+//                 let count = 0;
+//                 const currentDate = new Date("2024-07-01T04:28:49.587+00:00");
+//                 const dayOfMonth = currentDate.getUTCDate();
+//                 let startDate, endDate;
+//                 if (dayOfMonth >= 1 && dayOfMonth <= 15) {
+//                     // Current date is between 1st and 15th day of the month
+//                     startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
+//                     endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
+//                 } else {
+//                     // Current date is after the 15th day of the month
+//                     startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
+//                     endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+//                 }
+//                 doc.forEach(ele => {
+//                     WalletTable.getDataByFieldOld({ user_id: ele.user_id }, async (err, docs) => {
+//                         if (err) {
+//                             res.json({
+//                                 success: false,
+//                                 msg: err.message
+//                             });
+//                         } else {
+//                             // Check if docs is null or undefined
+//                             if (docs == null || typeof docs === 'undefined') {
+//                                 count++;
+//                                 if (count == doc.length) {
+//                                     res.json({
+//                                         success: true,
+//                                         msg: 'All Data get',
+//                                         data: dataTosend
+//                                     });
+//                                 }
+//                             } else {
+//                                 const data = await LiveStreamingTable.Table.aggregate([
+//                                     {
+//                                       $match: {
+//                                         user_id: ele.user_id,
+//                                         live_streaming_end_time: { $exists: true },
+//                                         live_streaming_start_time: { $gte: startDate, $lte: endDate },
+//                                       },
+//                                     },
+//                                     {
+//                                       $project: {
+//                                         live_streaming_start_time: 1,
+//                                         live_streaming_end_time: 1,
+//                                         coins: 1,
+//                                         live_name: 1,
+//                                       },
+//                                     },
+//                                     {
+//                                       $addFields: {
+//                                         // Calculate the start of the 24-hour interval for each document
+//                                         intervalStart: {
+//                                           $dateFromParts: {
+//                                             year: { $year: "$live_streaming_start_time" },
+//                                             month: { $month: "$live_streaming_start_time" },
+//                                             day: { $dayOfMonth: "$live_streaming_start_time" },
+//                                             hour: 0,
+//                                             minute: 0,
+//                                             second: 0,
+//                                             millisecond: 0,
+//                                           },
+//                                         },
+//                                       },
+//                                     },
+//                                     {
+//                                       $group: {
+//                                         _id: "$intervalStart", // Group by the calculated interval start
+//                                         data: { $push: "$$ROOT" }, // Store the grouped documents in an array
+//                                       },
+//                                     },
+//                                   ]);
+//                                   await newHoursAndCoins(data).then(async response => {
+//                                         let dataToPush = {};
+//                                         dataToPush.user_id = ele.user_id;
+//                                         dataToPush.real_name = ele.real_name;
+//                                         dataToPush.agencyId = ele.agencyId;
+//                                         dataToPush.coutry = ele.country;
+//                                         dataToPush.email = ele.email;
+//                                         dataToPush.total_coins = docs.user_rcoin;
+//                                         dataToPush.total_hours = response.eligible_hours;
+//                                         dataToPush.total_days = response.days;
+//                                         dataToPush.join_date = ele.created_at?.toLocaleDateString().split('T')[0] //date_format(ele.created_at);
+//                                         dataToPush.streaming_type = ele.streaming_type;
+//                                         await getNewTotal_salary(docs.user_rcoin, dataToPush).then(salary => {
+//                                             dataTosend.push(salary);
+//                                             count++;
+//                                             if (count == doc.length) {
+//                                                 res.json({
+//                                                     success: true,
+//                                                     msg: 'All Data get',
+//                                                     data: dataTosend
+//                                                 });
+//                                             }
+//                                         });
+//                                   });
+                                
+//                             }
+//                         }
+//                     });
+//                 });
+//             }
+//         }
+//     });
+// }));
 
 
 
@@ -587,21 +675,21 @@ router.route('/all-hostCoins').post(asyncErrorHandler(async(req,res,next)=>{
         },
         {
           $lookup: {
-            from: 'user_wallet_balances',
-            localField: 'user_id',
-            foreignField: 'user_id',
-            as: 'wallet'
+            from: 'user_logins',
+            localField: 'UID',
+            foreignField: 'UID',
+            as: 'userDetails'
           }
         },
         {
-          $unwind: '$wallet'
+          $unwind: '$userDetails'
         },
         {
           $group: {
             _id: null,
             total: {
               $sum: {
-                $ifNull: ['$wallet.user_rcoin', 0] // If user_rcoin is null, use 0
+                $ifNull: ['$userDetails.Ucoins', 0] // If user_rcoin is null, use 0
               }
             }
           }
@@ -750,7 +838,7 @@ router.post('/all-hostDurations/:getDays',asyncErrorHandler(async(req,res)=>{
             let totalMinutes=0;
             let totalSeconds=0;
             let days=0;   
-            const currentDate = new Date("2023-12-14T04:28:49.587+00:00");
+            const currentDate = new Date("2024-07-01T04:28:49.587+00:00");
             const dayOfMonth = currentDate.getUTCDate();
             let startDate, endDate;
             if (dayOfMonth >= 1 && dayOfMonth <= 15) {
@@ -766,7 +854,7 @@ router.post('/all-hostDurations/:getDays',asyncErrorHandler(async(req,res)=>{
                 const data = await LiveStreamingTable.Table.aggregate([
                     {
                       $match: {
-                        user_id: ele.user_id,
+                        UID: ele.UID,
                         live_streaming_end_time: { $exists: true },
                         live_streaming_start_time: { $gte: startDate, $lte: endDate },
                       },
@@ -776,7 +864,7 @@ router.post('/all-hostDurations/:getDays',asyncErrorHandler(async(req,res)=>{
                         live_streaming_start_time: 1,
                         live_streaming_end_time: 1,
                         coins: 1,
-                        live_name: 1,
+                        live_streaming_type: 1,
                       },
                     },
                     {

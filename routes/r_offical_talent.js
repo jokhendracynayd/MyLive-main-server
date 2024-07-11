@@ -19,10 +19,11 @@ const {upload4} = require('./file');
 
 
 // TODO: New API for host create
-router.route('/create').post(upload4.single('file'), asyncErrorHandler(async (req, res) => {
+// upload4.single('file'), 
+router.route('/create').post(asyncErrorHandler(async (req, res) => {
     let { UID, real_name, streaming_type, agencyId, email,mobile_no } = req.body;
-    let IDPicPath = req.file.filename;
-    let validateFields = [UID, real_name, streaming_type, agencyId, IDPicPath, email];
+    // let IDPicPath = req.file.filename;
+    let validateFields = [UID, real_name, streaming_type, agencyId, email];
     let isValid = validateFields.every(ele => ele && ele !== undefined && ele !== null);
   
     if (!isValid) {
@@ -61,7 +62,7 @@ router.route('/create').post(upload4.single('file'), asyncErrorHandler(async (re
       real_name: real_name,
       streaming_type: streaming_type,
       agencyId: agencyId,
-      IDPicPath: IDPicPath,
+      IDPicPath: "default.jpg",
       email: email,
       mobile_no,
     });
