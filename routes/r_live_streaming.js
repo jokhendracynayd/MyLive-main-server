@@ -461,7 +461,6 @@ router.post("/byFields", (req, res) => {
           msg: "No data found",
         });
       }
-      console.log(docs,"this is docs");
       return rc.setResponse(res, {
         success: true,
         msg: "Data Fetched",

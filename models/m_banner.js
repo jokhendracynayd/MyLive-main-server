@@ -10,7 +10,7 @@ const TableSchema = mongoose.Schema({
     banner_name:{
         type:String
     },
-});
+},{timestamps:true});
 
 const TableModel = mongoose.model(TableName, TableSchema);
 
