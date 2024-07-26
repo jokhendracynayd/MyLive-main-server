@@ -7,7 +7,6 @@ function calculateHoursMinutesSeconds(start, end) {
   const seconds = Math.floor((distance % 60000) / 1000);
   return { hours, minutes, seconds };
 }
-
 async function newHoursAndCoins(data) {
   return new Promise((resolve, reject) => {
     if (data.length === 0) {
@@ -47,7 +46,7 @@ async function newHoursAndCoins(data) {
             audioHours += hours;
             audioMinutes += minutes;
             audioSeconds += seconds;
-
+            
             if (audioMinutes >= 60) {
               audioHours++;
               audioMinutes -= 60;
@@ -55,7 +54,8 @@ async function newHoursAndCoins(data) {
               audioMinutes++;
               audioSeconds -= 60;
             }
-          } else if (ele.live_streaming_type === "live") {
+          } else if (ele.live_streaming_type === "live_streaming") {
+            // console.log("this is inside the live-streaming");
             if (hours >= 1) {
               if (isOneDay) {
                 days++;

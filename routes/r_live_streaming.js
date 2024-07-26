@@ -369,8 +369,6 @@ router.route("/getLiveDurationAndCoins/:UID").get(asyncErrorHandler(async (req, 
     },
   ]);
   
-  console.log(data);
-
   await newHoursAndCoins(data).then(async(response) => {
     // let coinsAsCoHost = await UserGiftingTable.Table.aggregate([
     //   {
