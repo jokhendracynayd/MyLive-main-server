@@ -10,7 +10,8 @@ const jwt = require("jsonwebtoken");
 const config = require("../config/database");
 const {getNewTotal_salary,hoursAndCoins,newHoursAndCoins,getTotal_salary,PrevstartAndendDate}=require('../utilis/get_hours_coins')
 const {date_format}=require('../utilis/date_formater');
-const asyncErrorHandler  = require('../utilis/asyncErrorHandler')
+const asyncErrorHandler  = require('../utilis/asyncErrorHandler');
+const UserTable = require('../models/m_user_login');
 
 router.route('/change-agency-passwrod').put(asyncErrorHandler(async(req,res,next)=>{
     let {id,new_password,old_password}=req.body;
@@ -181,55 +182,88 @@ router.get('/',
     }
 );
 
-
-router.post('/makeZero',async(req,res)=>{
-    const {fieldNames,fieldValues}=req.body;
-
-    console.log(req.body);
-
-    HostTable.getDataByFieldNames(fieldNames,fieldValues,async(err,doc)=>{
-        if(err){
-            res.json({
-                success:false,
-                msg:err.message
-            })
-        }else{
-            if(doc.length==0){
-                res.json({
-                    success:false,
-                    msg:"No data found"
-                })
-            }else{
-                let count=0;
-                doc.forEach(ele=>{
-                    WalletTable.getDataByField({user_id:ele.user_id},async(err,docs)=>{
-                        if(err){
-                            res.json({
-                                success:false,
-                                msg:err.message
-                            })
-                        }else{
-                            WalletTable.movetoOldTable(docs._id,async(err,doc1)=>{
-                                if(err){
-                                    console.log(err.message);
-                                }else{
-                                    console.log(doc1);
-                                    count++;
-                                    if(count==doc.length){
-                                        res.json({
-                                            success:true,
-                                            msg:"All data updated"
-                                        })
-                                    }
-                                }
-                            })
-                        }
-                    })
-                })
+router.route('/makeZero').post(asyncErrorHandler(async(req,res,_)=>{
+    const {agency_code} = req.body;
+    // validate all fields
+    if(!agency_code){
+        return res.json({
+            success:false,
+            msg:"All fields are required"
+        })
+    }
+    let hosts = await HostTable.Table.find({agencyId:agency_code,host_status:'accepted'});
+    if(!hosts.length){
+        return res.json({
+            success:false,
+            msg:"No host found"
+        })
+    }
+    for (let item of hosts) {
+        let user = await UserTable.Table.findOne({ UID: item.UID }, { UID: 1, Udiamonds: 1, Ucoins: 1, _id: 0 });
+        if (user) {
+            let oldBalance = new WalletTable.OldTable({
+                UID: user.UID,
+                Udiamonds: user.Udiamonds,
+                Ucoins: user.Ucoins,
+            });
+            let save = await oldBalance.save();
+            if(save){
+                // user.Ucoins = 0;
+                // await user.save();
             }
         }
-    })
-})
+    }
+    return res.json({
+        success:true,
+        msg:"All data updated"
+    });
+}));
+
+// router.post('/makeZero',async(req,res)=>{
+//     const {fieldNames,fieldValues}=req.body;
+//     HostTable.getDataByFieldNames(fieldNames,fieldValues,async(err,doc)=>{
+//         if(err){
+//             res.json({
+//                 success:false,
+//                 msg:err.message
+//             })
+//         }else{
+//             if(doc.length==0){
+//                 res.json({
+//                     success:false,
+//                     msg:"No data found"
+//                 })
+//             }else{
+//                 let count=0;
+//                 doc.forEach(ele=>{
+//                     WalletTable.getDataByField({user_id:ele.user_id},async(err,docs)=>{
+//                         if(err){
+//                             res.json({
+//                                 success:false,
+//                                 msg:err.message
+//                             })
+//                         }else{
+//                             WalletTable.movetoOldTable(docs._id,async(err,doc1)=>{
+//                                 if(err){
+//                                     console.log(err.message);
+//                                 }else{
+//                                     console.log(doc1);
+//                                     count++;
+//                                     if(count==doc.length){
+//                                         res.json({
+//                                             success:true,
+//                                             msg:"All data updated"
+//                                         })
+//                                     }
+//                                 }
+//                             })
+//                         }
+//                     })
+//                 })
+//             }
+//         }
+//     })
+// })
 
 //TODO: New API for salary calculation
 
@@ -348,7 +382,104 @@ router.route('/salaryProccess').post(asyncErrorHandler(async(req,res,_)=>{
     })
 }));
 
-
+router.post('/all-hostDurations/:getDays',asyncErrorHandler(async(req,res)=>{
+    const {fieldNames,fieldValues}=req.body;
+    HostTable.getDataByFieldNames(fieldNames,fieldValues,(err,doc)=>{
+        if(err){
+            res.json({
+                success:false,
+                msg:err.message,
+            })
+        }else{ 
+            let count=0;
+            let totalHours=0;
+            let totalMinutes=0;
+            let totalSeconds=0;
+            let days=0;   
+            const currentDate = new Date("2024-07-01T04:28:49.587+00:00");
+            const dayOfMonth = currentDate.getUTCDate();
+            let startDate, endDate;
+            if (dayOfMonth >= 1 && dayOfMonth <= 15) {
+                // Current date is between 1st and 15th day of the month
+                startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
+                endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
+            } else {
+                // Current date is after the 15th day of the month
+                startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
+                endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
+            }   
+            doc.forEach(async ele=>{
+                const data = await LiveStreamingTable.Table.aggregate([
+                    {
+                      $match: {
+                        UID: ele.UID,
+                        live_streaming_end_time: { $exists: true },
+                        live_streaming_start_time: { $gte: startDate, $lte: endDate },
+                      },
+                    },
+                    {
+                      $project: {
+                        live_streaming_start_time: 1,
+                        live_streaming_end_time: 1,
+                        coins: 1,
+                        live_streaming_type: 1,
+                      },
+                    },
+                    {
+                      $addFields: {
+                        // Calculate the start of the 24-hour interval for each document
+                        intervalStart: {
+                          $dateFromParts: {
+                            year: { $year: "$live_streaming_start_time" },
+                            month: { $month: "$live_streaming_start_time" },
+                            day: { $dayOfMonth: "$live_streaming_start_time" },
+                            hour: 0,
+                            minute: 0,
+                            second: 0,
+                            millisecond: 0,
+                          },
+                        },
+                      },
+                    },
+                    {
+                      $group: {
+                        _id: "$intervalStart", // Group by the calculated interval start
+                        data: { $push: "$$ROOT" }, // Store the grouped documents in an array
+                      },
+                    },
+                  ]);
+                await newHoursAndCoins(data).then(async response => {
+                    let arr = response.eligible_hours.split(":");
+                    let hours = Number(arr[0]);
+                    let minutes = Number(arr[1]);
+                    let seconds = Number(arr[2]);
+                    days += Number(response.days);
+                    totalHours += hours;
+                    totalMinutes += minutes;
+                    totalSeconds += seconds;
+                    if (totalMinutes >= 60) {
+                        totalHours++;
+                        totalMinutes -= 60;
+                    }
+                    else if (totalSeconds >= 60) {
+                        totalMinutes++;
+                        totalSeconds -= 60;
+                    }
+                    console.log(totalHours, totalMinutes, totalSeconds, days);
+                    count++;
+                    if (count == doc.length) {
+                        res.json({
+                            success: true,
+                            durations: `${totalHours < 10 ? '0' + totalHours : totalHours}:${totalMinutes < 10 ? '0' + totalMinutes : totalMinutes}:${totalSeconds < 10 ? '0' + totalSeconds : totalSeconds}`,
+                            days
+                        })
+                    }
+                });
+            })
+           
+        }
+    })
+}));
 
 // router.post('/salaryProccess', asyncErrorHandler(async (req, res) => {
 //     const { agency_code, days } = req.body;
@@ -472,11 +603,6 @@ router.route('/salaryProccess').post(asyncErrorHandler(async(req,res,_)=>{
 //         }
 //     });
 // }));
-
-
-
-
-
 
 router.post('/prevSalaryProccess',async(req,res)=>{
     const {agency_code,days}=req.body;
@@ -822,106 +948,6 @@ router.post('/Prevall-hostDurations/:getDays',(req,res)=>{
     })
 
 })
-
-
-router.post('/all-hostDurations/:getDays',asyncErrorHandler(async(req,res)=>{
-    const {fieldNames,fieldValues}=req.body;
-    HostTable.getDataByFieldNames(fieldNames,fieldValues,(err,doc)=>{
-        if(err){
-            res.json({
-                success:false,
-                msg:err.message,
-            })
-        }else{ 
-            let count=0;
-            let totalHours=0;
-            let totalMinutes=0;
-            let totalSeconds=0;
-            let days=0;   
-            const currentDate = new Date("2024-07-01T04:28:49.587+00:00");
-            const dayOfMonth = currentDate.getUTCDate();
-            let startDate, endDate;
-            if (dayOfMonth >= 1 && dayOfMonth <= 15) {
-                // Current date is between 1st and 15th day of the month
-                startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 1));
-                endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 15, 23, 59, 59, 999));
-            } else {
-                // Current date is after the 15th day of the month
-                startDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth(), 16));
-                endDate = new Date(Date.UTC(currentDate.getUTCFullYear(), currentDate.getUTCMonth() + 1, 0, 23, 59, 59, 999));
-            }   
-            doc.forEach(async ele=>{
-                const data = await LiveStreamingTable.Table.aggregate([
-                    {
-                      $match: {
-                        UID: ele.UID,
-                        live_streaming_end_time: { $exists: true },
-                        live_streaming_start_time: { $gte: startDate, $lte: endDate },
-                      },
-                    },
-                    {
-                      $project: {
-                        live_streaming_start_time: 1,
-                        live_streaming_end_time: 1,
-                        coins: 1,
-                        live_streaming_type: 1,
-                      },
-                    },
-                    {
-                      $addFields: {
-                        // Calculate the start of the 24-hour interval for each document
-                        intervalStart: {
-                          $dateFromParts: {
-                            year: { $year: "$live_streaming_start_time" },
-                            month: { $month: "$live_streaming_start_time" },
-                            day: { $dayOfMonth: "$live_streaming_start_time" },
-                            hour: 0,
-                            minute: 0,
-                            second: 0,
-                            millisecond: 0,
-                          },
-                        },
-                      },
-                    },
-                    {
-                      $group: {
-                        _id: "$intervalStart", // Group by the calculated interval start
-                        data: { $push: "$$ROOT" }, // Store the grouped documents in an array
-                      },
-                    },
-                  ]);
-                await newHoursAndCoins(data).then(async response => {
-                    let arr = response.eligible_hours.split(":");
-                    let hours = Number(arr[0]);
-                    let minutes = Number(arr[1]);
-                    let seconds = Number(arr[2]);
-                    days += Number(response.days);
-                    totalHours += hours;
-                    totalMinutes += minutes;
-                    totalSeconds += seconds;
-                    if (totalMinutes >= 60) {
-                        totalHours++;
-                        totalMinutes -= 60;
-                    }
-                    else if (totalSeconds >= 60) {
-                        totalMinutes++;
-                        totalSeconds -= 60;
-                    }
-                    console.log(totalHours, totalMinutes, totalSeconds, days);
-                    count++;
-                    if (count == doc.length) {
-                        res.json({
-                            success: true,
-                            durations: `${totalHours < 10 ? '0' + totalHours : totalHours}:${totalMinutes < 10 ? '0' + totalMinutes : totalMinutes}:${totalSeconds < 10 ? '0' + totalSeconds : totalSeconds}`,
-                            days
-                        })
-                    }
-                });
-            })
-           
-        }
-    })
-}));
 
 
 //<< Custom APIs Created By Ziggcoder//

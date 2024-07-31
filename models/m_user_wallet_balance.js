@@ -1,46 +1,26 @@
-const { update, after } = require("lodash");
+const { update, after, times } = require("lodash");
 const mongoose = require("mongoose");
 
 const TableName = "user_wallet_balance";
 
-const TableSchema = mongoose.Schema({
-   
-   
-    user_id: {
+const TableSchema = mongoose.Schema({   
+    UID: {
         type: String,
         required: true,
         trim: true,
         unique:true
     },
-    user_diamond: {
+    Udiamonds: {
         type: Number,
         required: true,
         trim: true
     },
-    user_rcoin: {
+    Ucoins: {
          type: Number,
         required: true,
         trim: true    
     },
-    user_coin: {
-         type: String,
-        // required: true,
-        trim: true   
-     },
-     created_at: {
-        type: Date,
-    },
-    created_by: {
-        type: String,
-    },
-    last_update: {
-        type: Date,
-    },
-    delete_status: {
-        type: String,
-    },
-
-});
+},{timestamps:true});
 
 const Table = (module.exports = mongoose.model(TableName, TableSchema));
 
@@ -105,16 +85,16 @@ module.exports.getDataById = (id, callback) => {
     Table.findById(id, callback);
 };
 
-module.exports.getTopUser=(callback)=>{
-    Table.aggregate([{
-        $lookup: {
-            from: "user_logins", // collection name in db
-            localField: "user_id",
-            foreignField: "username",
-            as: "details"
-        }
-    }]).sort({user_rcoin:-1}).limit(10).exec(callback)
-}
+// module.exports.getTopUser=(callback)=>{
+//     Table.aggregate([{
+//         $lookup: {
+//             from: "user_logins", // collection name in db
+//             localField: "user_id",
+//             foreignField: "username",
+//             as: "details"
+//         }
+//     }]).sort({user_rcoin:-1}).limit(10).exec(callback)
+// }
 
 module.exports.getDataByFieldName = (fieldName, fieldValue, callback) => {
     let query = {};
