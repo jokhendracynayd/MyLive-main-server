@@ -38,6 +38,9 @@ router.route('/top-daily-sender/:UID').get(asyncErrorHandler(async (req, res, ne
             $match: {
                 receiver_UID: UID,
                 role_of_receiver: "host",
+                createdAt:{
+                    $gte: new Date(new Date('2024-08-01T13:25:48.985+00:00').setHours(0, 0, 0)),
+                }
             }
         },
         {
@@ -402,6 +405,9 @@ router.route('/top-receiver').get(asyncErrorHandler(async (req, res, next) => {
         {
             $match: {
                 role_of_receiver: "host",
+                createdAt:{
+                    $gte: new Date(new Date('2024-08-01T13:25:48.985+00:00').setHours(0, 0, 0)),
+                }
             }
         },
         {
@@ -567,6 +573,9 @@ router.route('/top-sender').get(asyncErrorHandler(async (req, res, next) => {
         {
             $match: {
                 role_of_receiver: "host",
+                createdAt:{
+                    $gte: new Date(new Date('2024-08-01T13:25:48.985+00:00').setHours(0, 0, 0)),
+                }
             }
         },
         {

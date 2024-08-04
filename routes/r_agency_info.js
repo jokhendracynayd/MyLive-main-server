@@ -199,7 +199,7 @@ router.route('/makeZero').post(asyncErrorHandler(async(req,res,_)=>{
         })
     }
     for (let item of hosts) {
-        let user = await UserTable.Table.findOne({ UID: item.UID }, { UID: 1, Udiamonds: 1, Ucoins: 1, _id: 0 });
+        let user = await UserTable.Table.findOne({ UID: item.UID }, {UID: 1, Udiamonds: 1, Ucoins: 1,});
         if (user) {
             let oldBalance = new WalletTable.OldTable({
                 UID: user.UID,
@@ -208,8 +208,8 @@ router.route('/makeZero').post(asyncErrorHandler(async(req,res,_)=>{
             });
             let save = await oldBalance.save();
             if(save){
-                // user.Ucoins = 0;
-                // await user.save();
+                user.Ucoins = 0;
+                await user.save();
             }
         }
     }
@@ -309,7 +309,7 @@ router.route('/salaryProccess').post(asyncErrorHandler(async(req,res,_)=>{
             msg:"No host found"
         })
     }
-    const currentDate = new Date("2024-07-01T04:28:49.587+00:00");
+    const currentDate = new Date("2024-08-01T04:28:49.587+00:00");
     const dayOfMonth = currentDate.getUTCDate();
     let startDate, endDate;
     if (dayOfMonth >= 1 && dayOfMonth <= 15) {
@@ -396,7 +396,7 @@ router.post('/all-hostDurations/:getDays',asyncErrorHandler(async(req,res)=>{
             let totalMinutes=0;
             let totalSeconds=0;
             let days=0;   
-            const currentDate = new Date("2024-07-01T04:28:49.587+00:00");
+            const currentDate = new Date("2024-08-01T04:28:49.587+00:00");
             const dayOfMonth = currentDate.getUTCDate();
             let startDate, endDate;
             if (dayOfMonth >= 1 && dayOfMonth <= 15) {
